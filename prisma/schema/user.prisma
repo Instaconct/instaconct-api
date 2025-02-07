@@ -1,0 +1,33 @@
+model User {
+  id               String       @id @default(ulid())
+  name             String       @db.VarChar(255)
+  email            String       @unique @db.VarChar(255)
+  phone            String?      @unique @db.VarChar(255)
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  is_verified      Boolean      @default(false)
+  password         String
+  token            String?
+  token_expires_at DateTime?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+  role             Role         @default(MANGER)
+}
+
+model Organization {
+  id           String   @id @default(ulid())
+  name         String   @unique
+  website      String?
+  default_lang String?  @default("en")
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  timezone     String?  @default("UTC")
+  users        User[]
+}
+
+enum Role {
+  SUPER_MANGER
+  MANGER
+  AGENT 
+  CUSTOMER
+}

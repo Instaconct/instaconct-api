@@ -1,0 +1,8 @@
+{
+    "a-file-icon-vscode.activeIconPacks": [
+        "angular",
+        "nest",
+        "rails"
+    ],
+    "postman.settings.dotenv-detection-notification-visibility": false
+}
