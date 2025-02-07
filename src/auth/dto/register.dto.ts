@@ -6,6 +6,8 @@ import {
   IsNotEmpty,
   IsObject,
   ValidateNested,
+  IsOptional,
+  IsPhoneNumber,
 } from 'class-validator';
 import { CreateOrganizationDto } from 'src/organization/dto/create-organization.dto';
 import { Type } from 'class-transformer';
@@ -18,6 +20,11 @@ export class RegisterDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+
+  @IsPhoneNumber()
+  @IsNotEmpty()
+  @IsOptional()
+  phone: string;
 
   @IsString()
   @IsNotEmpty()

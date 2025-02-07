@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
@@ -55,6 +56,7 @@ export class AuthService {
           organizationId: organization.id,
           role: userRegistrationDto.role,
           token: emailVerifyToken,
+          phone: userRegistrationDto.phone,
         },
         include: { organization: true },
       });
@@ -100,12 +102,12 @@ export class AuthService {
 
   async verifyEmail(token: string) {
     try {
-      const user = await this.prismaService.user.findFirst({
+      const user = await this.prismaService.user.findUnique({
         where: { token },
       });
 
       if (!user) {
-        throw new ConflictException('Invalid token');
+        throw new NotFoundException('Invalid token');
       }
 
       await this.prismaService.user.update({
@@ -117,7 +119,7 @@ export class AuthService {
     } catch (error) {
       this.logger.error("Couldn't verify email", error);
 
-      if (error instanceof ConflictException) {
+      if (error instanceof NotFoundException) {
         throw error;
       }
 

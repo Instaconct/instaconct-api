@@ -32,6 +32,12 @@ export class AuthController {
     return this.authService.refresh(refreshDto);
   }
 
+  @Post('/verify/:token')
+  @HttpCode(HttpStatus.OK)
+  async verify(@Param('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
   @Post('/logout/:refreshToken')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Param('refreshToken') refreshToken: string) {
