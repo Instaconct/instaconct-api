@@ -3,6 +3,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Hash } from 'src/auth/provider/hash.provider';
+import { FilterUserDto } from './dto/filter-user.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -24,12 +26,48 @@ export class UserService {
     });
   }
 
-  async findAll(organizationId: string) {
-    return await this.prismaService.user.findMany({
-      where: {
-        organizationId: organizationId,
+  async findAll(filterUserDto: FilterUserDto) {
+    const {
+      organizationId,
+      name,
+      email,
+      is_verified,
+      phone,
+      role,
+      page = 1,
+      take = 10,
+    } = filterUserDto;
+
+    const where: Prisma.UserWhereInput = {
+      organizationId,
+      ...(name && { name: { contains: name } }),
+      ...(email && { email: { contains: email } }),
+      ...(is_verified !== undefined && { is_verified }),
+      ...(phone && { phone: { contains: phone } }),
+      ...(role && { role }),
+    };
+
+    const skip = (page - 1) * take;
+
+    const [total, users] = await Promise.all([
+      this.prismaService.user.count({ where }),
+      this.prismaService.user.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { created_at: 'desc' },
+      }),
+    ]);
+
+    return {
+      data: users,
+      meta: {
+        total,
+        page,
+        take,
+        pageCount: Math.ceil(total / take),
       },
-    });
+    };
   }
 
   async findOneById(id: string) {

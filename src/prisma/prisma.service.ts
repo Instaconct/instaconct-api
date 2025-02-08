@@ -15,7 +15,7 @@ export class PrismaService
 {
   constructor() {
     super({
-      // Add default select for user model
+      log: ['query'],
       omit: {
         user: {
           ...defaultUserOmit,
@@ -29,6 +29,10 @@ export class PrismaService
   }
 
   onModuleInit() {
+    this.$on('query' as never, (e: any) => {
+      console.log('Duration: ' + e.duration + 'ms');
+    });
+
     this.$connect();
   }
 }
