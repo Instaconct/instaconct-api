@@ -1,13 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Hash } from 'src/auth/provider/hash.provider';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly hashProvider: Hash,
+  ) {}
 
-  create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto) {
+    createUserDto.password = await this.hashProvider.hashPassword(
+      createUserDto.password,
+    );
+
     return this.prismaService.user.create({
       data: {
         ...createUserDto,
@@ -24,15 +32,44 @@ export class UserService {
     });
   }
 
-  findOne(id: string) {
-    return `This action returns a #${id} user`;
+  async findOneById(id: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: id,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return user;
   }
 
   update(id: string, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+    try {
+      if (updateUserDto.organizationId) {
+        throw new BadRequestException('OrganizationId cannot be updated');
+      }
+
+      return this.prismaService.user.update({
+        where: {
+          id: id,
+        },
+        data: {
+          ...updateUserDto,
+        },
+      });
+    } catch (error) {
+      return error;
+    }
   }
 
   remove(id: string) {
-    return `This action removes a #${id} user`;
+    return this.prismaService.user.delete({
+      where: {
+        id: id,
+      },
+    });
   }
 }

@@ -42,7 +42,7 @@ export class AuthService {
         data: userRegistrationDto.organization,
       });
 
-      userRegistrationDto.role = Role.SUPER_MANGER;
+      userRegistrationDto.role = Role.SUPER_MANAGER;
       userRegistrationDto.password = await this.hashProvider.hashPassword(
         userRegistrationDto.password,
       );

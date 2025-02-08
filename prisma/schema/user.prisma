@@ -11,7 +11,7 @@ model User {
   token_expires_at DateTime?
   created_at       DateTime     @default(now())
   updated_at       DateTime     @updatedAt
-  role             Role         @default(MANGER)
+  role             Role         @default(CUSTOMER)
 }
 
 model Organization {
@@ -26,8 +26,8 @@ model Organization {
 }
 
 enum Role {
-  SUPER_MANGER
-  MANGER
+  SUPER_MANAGER
+  MANAGER
   AGENT 
   CUSTOMER
 }

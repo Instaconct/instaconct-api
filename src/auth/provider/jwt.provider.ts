@@ -40,6 +40,12 @@ export class Jwt {
     });
   }
 
+  verifyAsync(token: string) {
+    return this.jwtService.verifyAsync(token, {
+      secret: this.configService.getOrThrow('JWT_SECRET'),
+    });
+  }
+
   /**
    * Verifies the refresh token against the access token and cached data.
    * @param refreshToken - The refresh token to verify
