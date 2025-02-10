@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -169,6 +170,107 @@ export class AuthService {
       return { accessToken, refreshToken, user };
     } catch (error) {
       this.logger.error("Couldn't login", error);
+      throw new InternalServerErrorException();
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  async forgotPassword(email: string) {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        throw new ConflictException('User not found');
+      }
+
+      if (user.is_verified === false) {
+        throw new ConflictException('User not verified');
+      }
+
+      if (user.token_expires_at && user.token_expires_at > new Date()) {
+        throw new ConflictException('Token already exists');
+      }
+
+      const passwordResetToken = await this.hashProvider.generateRandomString();
+
+      await this.prismaService.user.update({
+        where: { id: user.id },
+        data: {
+          token: passwordResetToken,
+          token_expires_at: new Date(Date.now() + 1000 * 60 * 15),
+        },
+      });
+
+      await this.mailService.sendEmail(
+        user.email,
+        'Password Reset Request',
+        {
+          url: process.env.DEFAULT_VERIFY_URL + `?token=${passwordResetToken}`,
+        },
+        EMAIL_TYPES.RESET_PASSWORD,
+      );
+
+      return { message: 'Password reset email sent' };
+    } catch (error) {
+      this.logger.error("Couldn't forgot password", error);
+      return { message: 'Password reset email sent' };
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { token: token },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid Token');
+      }
+
+      if (user.token_expires_at < new Date()) {
+        throw new UnauthorizedException('Token expired');
+      }
+
+      await this.prismaService.user.update({
+        where: { id: user.id },
+        data: {
+          password: await this.hashProvider.hashPassword(newPassword),
+          token: null,
+          token_expires_at: null,
+        },
+      });
+
+      return { message: 'Password reset successfully' };
+    } catch (error) {
+      this.logger.error("Couldn't reset password", error);
+      throw error;
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  async verifyToken(token: string) {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { token },
+      });
+
+      if (!user) {
+        throw new ConflictException('Invalid credentials');
+      }
+
+      if (user.token_expires_at < new Date()) {
+        throw new ConflictException('Token expired');
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error("Couldn't verify token", error);
       throw new InternalServerErrorException();
     } finally {
       await this.prismaService.$disconnect();

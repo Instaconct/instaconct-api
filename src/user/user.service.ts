@@ -84,10 +84,16 @@ export class UserService {
     return user;
   }
 
-  update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto) {
     try {
       if (updateUserDto.organizationId) {
         throw new BadRequestException('OrganizationId cannot be updated');
+      }
+
+      if (updateUserDto.password) {
+        updateUserDto.password = await this.hashProvider.hashPassword(
+          updateUserDto.password,
+        );
       }
 
       return this.prismaService.user.update({

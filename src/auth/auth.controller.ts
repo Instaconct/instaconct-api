@@ -15,6 +15,9 @@ import { RefreshDto } from './dto/refresh.dto';
 import { GetUser } from 'src/shared/decorator/user.decorator';
 import { User } from '@prisma/client';
 import { AuthenticationGuard } from './guard/authentication.guard';
+import { ForgetPasswordDto } from './dto/forget-password.dto';
+import { RestPasswordDto } from './dto/rest-password.dto';
+import { VerifyTokenDto } from './dto/verfiy-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -35,6 +38,27 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() refreshDto: RefreshDto) {
     return this.authService.refresh(refreshDto);
+  }
+
+  @Post('/forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
+    return this.authService.forgotPassword(forgetPasswordDto.email);
+  }
+
+  @Post('/reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() restPasswordDto: RestPasswordDto) {
+    return this.authService.resetPassword(
+      restPasswordDto.token,
+      restPasswordDto.newPassword,
+    );
+  }
+
+  @Post('/verify-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyToken(@Body() verifyTokenDto: VerifyTokenDto) {
+    return this.authService.verifyToken(verifyTokenDto.token);
   }
 
   @Post('/verify/:token')
