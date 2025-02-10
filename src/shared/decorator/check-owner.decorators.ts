@@ -7,8 +7,9 @@ export const CheckOwnership = createParamDecorator(
     if (!requiredRoles?.length) return true;
 
     return (
-      requiredRoles.some((role) => user.role === role) ||
-      req.args[0].params.id === user.id
+      requiredRoles.some((role) => user.role === role) &&
+      (req.args[0].params.id === user.id ||
+        req.args[0].query.organizationId === user.organizationId)
     );
   },
 );

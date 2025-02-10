@@ -5,7 +5,6 @@ export const defaultUserOmit = {
   password: true,
   token: true,
   token_expires_at: true,
-  created_at: true,
 } as const;
 
 @Injectable()

@@ -1,13 +1,20 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Hash } from 'src/auth/provider/hash.provider';
 import { FilterUserDto } from './dto/filter-user.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly hashProvider: Hash,
@@ -84,33 +91,61 @@ export class UserService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, user: User) {
+    const requestedUser = await this.prismaService.user.findUnique({
+      where: { id },
+    });
+
+    if (!requestedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user has permission to update
+    if (
+      requestedUser.organizationId !== user.organizationId ||
+      (user.role !== Role.SUPER_MANAGER && user.role !== Role.MANAGER)
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to update this user',
+      );
+    }
+
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.hashProvider.hashPassword(
+        updateUserDto.password,
+      );
+    }
+
     try {
-      if (updateUserDto.organizationId) {
-        throw new BadRequestException('OrganizationId cannot be updated');
-      }
-
-      if (updateUserDto.password) {
-        updateUserDto.password = await this.hashProvider.hashPassword(
-          updateUserDto.password,
-        );
-      }
-
-      return this.prismaService.user.update({
-        where: {
-          id: id,
-        },
-        data: {
-          ...updateUserDto,
-        },
+      return await this.prismaService.user.update({
+        where: { id },
+        data: updateUserDto,
       });
     } catch (error) {
-      return error;
+      this.logger.error(error);
+      throw new BadRequestException('Failed to update user');
     }
   }
 
-  remove(id: string) {
-    return this.prismaService.user.delete({
+  async remove(id: string, user: User) {
+    const requestedUser = await this.prismaService.user.findUnique({
+      where: { id },
+    });
+
+    if (!requestedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (
+      requestedUser.organizationId !== user.organizationId ||
+      (user.role !== Role.SUPER_MANAGER && user.role !== Role.MANAGER)
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to delete this user',
+      );
+    }
+
+    return await this.prismaService.user.delete({
       where: {
         id: id,
       },
