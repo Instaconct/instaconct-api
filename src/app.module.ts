@@ -12,6 +12,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'node:path';
 import { MailModule } from './mail/mail.module';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [
@@ -29,6 +30,13 @@ import { MailModule } from './mail/mail.module';
       }),
       inject: [ConfigService],
       isGlobal: true,
+    }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: +process.env.REDIS_PORT,
+      },
+      prefix: 'bullmq',
     }),
     MailerModule.forRoot({
       transport: {
