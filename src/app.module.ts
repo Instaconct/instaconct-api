@@ -13,6 +13,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { join } from 'node:path';
 import { MailModule } from './mail/mail.module';
 import { BullModule } from '@nestjs/bullmq';
+import { TicketModule } from './ticket/ticket.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { BullModule } from '@nestjs/bullmq';
     PrismaModule,
     UserModule,
     OrganizationModule,
+    TicketModule,
   ],
 })
 export class AppModule {

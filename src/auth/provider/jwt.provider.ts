@@ -93,4 +93,14 @@ export class Jwt {
   public async revokeRefreshToken(refreshToken: string): Promise<boolean> {
     return await this.cacheManager.del(refreshToken);
   }
+
+  async generateTicketToken(conversationId: string) {
+    return this.jwtService.sign(
+      { conversationId },
+      {
+        secret: this.configService.getOrThrow('JWT_SECRET'),
+        expiresIn: '1h',
+      },
+    );
+  }
 }

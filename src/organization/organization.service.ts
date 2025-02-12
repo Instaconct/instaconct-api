@@ -46,7 +46,7 @@ export class OrganizationService {
   //   });
   // }
 
-  async findOne(id: string, user: User) {
+  async findOne(id: string, user?: User) {
     const organization = await this.prismaService.organization.findUnique({
       where: { id },
     });
@@ -56,7 +56,7 @@ export class OrganizationService {
     }
 
     // Check if user has permission to view this organization
-    if (organization.id !== user.organizationId) {
+    if (user && organization.id !== user.organizationId) {
       throw new ForbiddenException(
         'You do not have permission to view this organization',
       );

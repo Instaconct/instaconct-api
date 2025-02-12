@@ -1,15 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
-import { Message } from './entities/message.entity';
-
 @Injectable()
 export class MessagesService {
-  message: Message[] = [
-    { id: 'test', username: 'omar', content: 'Hello World!' },
-    { id: 'test', username: 'omar', content: 'Hello World!' },
-  ];
-
   clientToUser = {};
 
   identify(clientId: string, name: string) {
@@ -22,15 +15,11 @@ export class MessagesService {
   }
 
   create(createMessageDto: CreateMessageDto) {
-    this.message.push({
-      ...createMessageDto,
-      id: Math.random().toString(),
-    });
     return createMessageDto;
   }
 
   findAll() {
-    return this.message;
+    return [];
   }
 
   findOne(id: number) {
@@ -38,10 +27,10 @@ export class MessagesService {
   }
 
   update(id: number, updateMessageDto: UpdateMessageDto) {
-    return `This action updates a #${id} message`;
+    return updateMessageDto;
   }
 
   remove(id: number) {
-    return `This action removes a #${id} message`;
+    return { message: `This action removes a #${id} message` };
   }
 }
