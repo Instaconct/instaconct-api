@@ -10,12 +10,14 @@ import { RegisterDto } from './dto/register.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Jwt } from './provider/jwt.provider';
 import { IJwtPayload } from './interface/jwt-payload.interface';
-import { Role } from '@prisma/client';
+import { Role, SDKType } from '@prisma/client';
 import { Hash } from './provider/hash.provider';
 import { IRefreshPayload } from './interface/refresh-payload.interface';
 import { RefreshDto } from './dto/refresh.dto';
 import { MailService } from 'src/mail/mail.service';
 import { EMAIL_TYPES } from 'src/mail/email.types';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,7 @@ export class AuthService {
     private readonly jwtProvider: Jwt,
     private readonly hashProvider: Hash,
     private readonly mailService: MailService,
+    @InjectQueue('org-sdk') private readonly orgSdkQueue: Queue,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -59,6 +62,11 @@ export class AuthService {
           phone: userRegistrationDto.phone,
         },
         include: { organization: true },
+      });
+
+      await this.orgSdkQueue.add('create-sdk', {
+        organizationId: organization.id,
+        sdkType: SDKType.WEB,
       });
 
       const payload: IJwtPayload = {

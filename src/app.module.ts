@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { MailModule } from './mail/mail.module';
 import { BullModule } from '@nestjs/bullmq';
 import { TicketModule } from './ticket/ticket.module';
+import { OrgSdkModule } from './org_sdk/org_sdk.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { TicketModule } from './ticket/ticket.module';
     UserModule,
     OrganizationModule,
     TicketModule,
+    OrgSdkModule,
   ],
 })
 export class AppModule {

@@ -38,27 +38,6 @@ export class MessagesGateway implements OnGatewayInit {
     return data;
   }
 
-  @SubscribeMessage('typing')
-  handleTyping(socket: Socket, conversationId: string) {
-    const { user } = socket.data;
-    if (!user) {
-      return;
-    }
-    socket.to(conversationId).emit('typing', {
-      userId: user.id,
-      isTyping: true,
-    });
-
-    // Automatically reset after 3 seconds
-    setTimeout(() => {
-      socket.to(conversationId).emit('typing', {
-        userId: user.id,
-        isTyping: false,
-      });
-    }, 3000);
-  }
-
-  // Agent can only access org conversations
   @SubscribeMessage('joinConversation')
   async handleJoin(
     @ConnectedSocket() client: Socket,
@@ -84,6 +63,26 @@ export class MessagesGateway implements OnGatewayInit {
       console.error(error);
       client.emit('error', { message: 'Failed to join conversation' });
     }
+  }
+
+  @SubscribeMessage('typing')
+  handleTyping(socket: Socket, conversationId: string) {
+    const { user } = socket.data;
+    if (!user) {
+      return;
+    }
+    socket.to(conversationId).emit('typing', {
+      userId: user.id,
+      isTyping: true,
+    });
+
+    // Automatically reset after 3 seconds
+    setTimeout(() => {
+      socket.to(conversationId).emit('typing', {
+        userId: user.id,
+        isTyping: false,
+      });
+    }, 3000);
   }
 
   @SubscribeMessage('message')

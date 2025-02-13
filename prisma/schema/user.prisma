@@ -17,20 +17,39 @@ model User {
 }
 
 model Organization {
-  id           String   @id @default(ulid())
-  name         String   @unique
+  id           String             @id @default(ulid())
+  name         String             @unique
   website      String?
-  default_lang String?  @default("en")
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  timezone     String?  @default("UTC")
+  default_lang String?            @default("en")
+  created_at   DateTime           @default(now())
+  updated_at   DateTime           @updatedAt
+  timezone     String?            @default("UTC")
   users        User[]
   tickets      Ticket[]
+  sdks         OrgManagementSDK[]
 }
 
+// Organization management SDK
+model OrgManagementSDK {
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizationId String
+  sdk            SDKType
+  public_key     String       @unique
+  private_key    String       @unique
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  @@id([organizationId, sdk])
+}
+ 
 enum Role {
   SUPER_MANAGER
   MANAGER
   AGENT
   CUSTOMER
+}
+
+enum SDKType {
+  WEB
+  FLUTTER
 }
