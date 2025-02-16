@@ -32,6 +32,12 @@ export class UserController {
     return this.userService.create(createUserDto);
   }
 
+  @Post('/agent')
+  @Roles(Role.SUPER_MANAGER, Role.MANAGER)
+  createAgent(@Body() createUserDto: CreateUserDto) {
+    return this.userService.createAgent(createUserDto);
+  }
+
   @Get()
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   findAll(

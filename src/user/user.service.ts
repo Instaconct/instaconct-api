@@ -172,4 +172,20 @@ export class UserService {
       },
     });
   }
+
+  async createAgent(createUserDto: CreateUserDto) {
+    try {
+      return await this.prismaService.user.create({
+        data: {
+          ...createUserDto,
+          role: Role.AGENT,
+        },
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new BadRequestException('Failed to create agent');
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
 }
