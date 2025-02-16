@@ -24,10 +24,14 @@ export class TicketService {
           },
         },
       },
+      include: {
+        customer: true,
+      },
     });
 
+    console.log(ticket);
     const token = await this.jwtProvider.generateTicketToken(ticket.id);
-    return { ticketId: ticket.id, token };
+    return { ticketId: ticket.id, token, customer: ticket.customer };
   }
 
   async findAll() {

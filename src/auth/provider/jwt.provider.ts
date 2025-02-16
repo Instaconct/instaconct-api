@@ -94,9 +94,9 @@ export class Jwt {
     return await this.cacheManager.del(refreshToken);
   }
 
-  async generateTicketToken(conversationId: string) {
+  async generateTicketToken(ticketId: string) {
     return this.jwtService.sign(
-      { conversationId },
+      { ticketId },
       {
         secret: this.configService.getOrThrow('JWT_SECRET'),
         expiresIn: '1h',

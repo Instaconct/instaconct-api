@@ -1,10 +1,12 @@
 import { Socket } from 'socket.io';
-import { OrganizationService } from 'src/organization/organization.service';
+import { Jwt } from 'src/auth/provider/jwt.provider';
+import { TicketService } from 'src/ticket/ticket.service';
 
 type SocketMiddleware = (socket: Socket, next: (err?: Error) => void) => void;
 
 export const AuthWsMiddleware = (
-  organizationService: OrganizationService,
+  ticketService: TicketService,
+  jwtProvider: Jwt,
 ): SocketMiddleware => {
   return async (socket: Socket, next) => {
     try {
@@ -15,12 +17,20 @@ export const AuthWsMiddleware = (
         throw new Error('Unauthorized');
       }
 
-      const organization = await organizationService.findOne(token, null);
+      const payload = jwtProvider.verify(token);
 
-      if (!organization) {
+      if (!payload) {
         throw new Error('Unauthorized');
       }
-      socket.data.organization = organization;
+
+      if (payload.ticketId) {
+        const ticket = await ticketService.findOne(payload.ticketId);
+        if (!ticket) {
+          throw new Error('Unauthorized');
+        }
+        socket.data.ticketId = payload.ticketId;
+      }
+
       next();
     } catch (error) {
       console.error(error);

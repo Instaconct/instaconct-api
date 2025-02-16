@@ -91,6 +91,27 @@ export class UserService {
     return user;
   }
 
+  async findOneByIdAndTicketOpen(id: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        tickets: {
+          where: {
+            status: 'OPEN',
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return user;
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto, user: User) {
     const requestedUser = await this.prismaService.user.findUnique({
       where: { id },

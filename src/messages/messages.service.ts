@@ -1,36 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class MessagesService {
-  clientToUser = {};
+  constructor(private readonly PrismaService: PrismaService) {}
 
-  identify(clientId: string, name: string) {
-    this.clientToUser[clientId] = name;
-    return Object.values(this.clientToUser);
+  async create(createMessageDto: CreateMessageDto) {
+    const message = await this.PrismaService.message.create({
+      data: createMessageDto,
+    });
+
+    return message;
   }
 
-  getUserName(clientId: string) {
-    return this.clientToUser[clientId];
+  async findAll(tickedId: string) {
+    return await this.PrismaService.message.findMany({
+      where: { ticketId: tickedId },
+    });
   }
 
-  create(createMessageDto: CreateMessageDto) {
-    return createMessageDto;
+  update(id: string, updateMessageDto: UpdateMessageDto) {
+    return this.PrismaService.message.update({
+      where: { id },
+      data: updateMessageDto,
+    });
   }
 
-  findAll() {
-    return [];
-  }
-
-  findOne(id: number) {
-    return { message: `This action returns a #${id} message` };
-  }
-
-  update(id: number, updateMessageDto: UpdateMessageDto) {
-    return updateMessageDto;
-  }
-
-  remove(id: number) {
-    return { message: `This action removes a #${id} message` };
+  remove(id: string) {
+    return this.PrismaService.message.delete({
+      where: { id },
+    });
   }
 }
