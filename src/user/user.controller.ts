@@ -9,6 +9,10 @@ import {
   Query,
   UseGuards,
   ForbiddenException,
+  UploadedFile,
+  UseInterceptors,
+  HttpStatus,
+  ParseFilePipeBuilder,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,6 +24,7 @@ import { Role, User } from '@prisma/client';
 import { CheckOwnership } from 'src/shared/decorator/check-owner.decorators';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { GetUser } from 'src/shared/decorator/user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('user')
 @UseGuards(AuthenticationGuard, RolesGuard)
@@ -38,6 +43,62 @@ export class UserController {
     return this.userService.createAgent(createUserDto);
   }
 
+  @Post('/agent/csv')
+  @Roles(Role.SUPER_MANAGER, Role.MANAGER)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 1024 * 1024 * 5, // 5MB
+      },
+    }),
+  )
+  createAgentCsv(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: 'csv',
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: Express.Multer.File,
+    @GetUser() user: User,
+  ) {
+    return this.userService.readCsv(file, user.organizationId);
+  }
+
+  @Post('/agent/excel')
+  @Roles(Role.SUPER_MANAGER, Role.MANAGER)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 1024 * 1024 * 5, // 5MB
+      },
+    }),
+  )
+  createAgentExcel(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        // .addFileTypeValidator({
+        //   fileType: 'xlsx',
+        // })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: Express.Multer.File,
+    @GetUser() user: User,
+  ) {
+    return this.userService.readExcelSheet(file, user.organizationId);
+  }
+
+  @Post('/manager')
+  @Roles(Role.SUPER_MANAGER)
+  async createManager(@Body() createUserDto: CreateUserDto) {
+    return this.userService.createManager(createUserDto);
+  }
+
   @Get()
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   findAll(
@@ -47,6 +108,12 @@ export class UserController {
     if (!haveAccess)
       throw new ForbiddenException('You do not have access to this resource');
     return this.userService.findAll(filterUserDto);
+  }
+
+  @Get('/agent')
+  @Roles(Role.SUPER_MANAGER, Role.MANAGER)
+  findAllAgent(@GetUser() user: User) {
+    return this.userService.findAllAgent(user.organizationId);
   }
 
   @Get(':id')

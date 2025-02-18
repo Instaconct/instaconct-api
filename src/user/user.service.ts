@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -11,6 +13,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Hash } from 'src/auth/provider/hash.provider';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { Prisma, Role, User } from '@prisma/client';
+import Excel from 'exceljs';
+import { isEmail } from 'class-validator';
 
 @Injectable()
 export class UserService {
@@ -186,6 +190,220 @@ export class UserService {
       throw new BadRequestException('Failed to create agent');
     } finally {
       await this.prismaService.$disconnect();
+    }
+  }
+
+  async findAllAgent(organizationId: string) {
+    try {
+      return await this.prismaService.user.findMany({
+        where: {
+          role: Role.AGENT,
+          organizationId,
+        },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(error);
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  async createManager(createUserDto: CreateUserDto) {
+    try {
+      return await this.prismaService.user.create({
+        data: {
+          ...createUserDto,
+          role: Role.MANAGER,
+        },
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new BadRequestException('Failed to create manager');
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  // create agents with csv/excel sheet
+  async createAgents(createUserDto: CreateUserDto[]) {
+    try {
+      return await this.prismaService.user.createMany({
+        data: createUserDto,
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new BadRequestException('Failed to create agents');
+    } finally {
+      await this.prismaService.$disconnect();
+    }
+  }
+
+  //handle the reading of csv / excel
+  async readCsv(file: Express.Multer.File, organizationId: string) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Invalid file upload');
+    }
+
+    try {
+      const csvData = file.buffer.toString();
+      const rows = csvData.split('\n');
+
+      if (rows.length < 2) {
+        throw new BadRequestException('CSV file is empty or invalid');
+      }
+
+      const headers = rows[0]
+        .split(',')
+        .map((header) => header.trim().toUpperCase());
+
+      // Validate required columns
+      const requiredColumns = ['NAME', 'EMAIL'];
+      const missingColumns = requiredColumns.filter(
+        (col) => !headers.includes(col),
+      );
+
+      if (missingColumns.length) {
+        throw new BadRequestException(
+          `Missing required columns: ${missingColumns.join(', ')}`,
+        );
+      }
+      console.log(rows.length);
+      if (rows.length > 102) {
+        throw new UnprocessableEntityException('Maximum 100 rows allowed');
+      }
+
+      const data: CreateUserDto[] = [];
+      const emailSet = new Set<string>();
+
+      for (let i = 1; i < rows.length; i++) {
+        const csvRowData = rows[i].split(',');
+        const rowData: Record<string, string> = {};
+
+        headers.forEach((header, index) => {
+          rowData[header] = csvRowData[index]?.trim() || '';
+        });
+
+        // Validate email format
+        if (!isEmail(rowData['EMAIL'])) {
+          throw new BadRequestException(`Invalid email format at row ${i + 1}`);
+        }
+
+        // Check for duplicate emails
+        if (emailSet.has(rowData['EMAIL'])) {
+          throw new BadRequestException(
+            `Duplicate email found at row ${i + 1}`,
+          );
+        }
+        emailSet.add(rowData['EMAIL']);
+
+        data.push({
+          name: rowData['NAME'],
+          email: rowData['EMAIL'],
+          password: await this.hashProvider.hashPassword(organizationId),
+          organizationId,
+          role: Role.AGENT,
+        });
+      }
+
+      return await this.prismaService.user.createMany({
+        data,
+      });
+    } catch (error) {
+      this.logger.error('CSV processing failed:', error);
+      console.log(error);
+      if (error.code === 'P2002')
+        throw new UnprocessableEntityException('Duplicate email found');
+
+      throw error instanceof BadRequestException ||
+        error instanceof UnprocessableEntityException
+        ? error
+        : new InternalServerErrorException('Failed to process CSV file');
+    }
+  }
+
+  async readExcelSheet(file: Express.Multer.File, organizationId: string) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Invalid file upload');
+    }
+
+    try {
+      const workbook = new Excel.Workbook();
+      await workbook.xlsx.load(file.buffer);
+      const worksheet = workbook.getWorksheet(1);
+
+      if (!worksheet || worksheet.rowCount < 2) {
+        throw new BadRequestException('Excel sheet is empty or invalid');
+      }
+
+      const headers = (worksheet.getRow(1).values as Excel.CellValue[]).map(
+        (header) => header?.toString().trim().toUpperCase(),
+      );
+
+      // Validate required columns
+      const requiredColumns = ['NAME', 'EMAIL'];
+      const missingColumns = requiredColumns.filter(
+        (col) => !headers.includes(col),
+      );
+
+      if (missingColumns.length) {
+        throw new BadRequestException(
+          `Missing required columns: ${missingColumns.join(', ')}`,
+        );
+      }
+
+      const rows: CreateUserDto[] = [];
+      const emailSet = new Set<string>();
+
+      if (worksheet.rowCount > 101) {
+        throw new UnprocessableEntityException('Maximum 100 rows allowed');
+      }
+
+      for (let i = 2; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i).values as Excel.CellValue[];
+        const rowData: Record<string, string> = {};
+
+        headers.forEach((header, index) => {
+          const value = row[index]?.toString().trim() || '';
+          rowData[header] = value;
+        });
+
+        // Validate email format
+        if (!isEmail(rowData['EMAIL'].trim())) {
+          console.log(rowData);
+          throw new BadRequestException(`Invalid email format at row ${i}`);
+        }
+
+        // Check for duplicate emails
+        if (emailSet.has(rowData['EMAIL'])) {
+          throw new BadRequestException(`Duplicate email found at row ${i}`);
+        }
+        emailSet.add(rowData['EMAIL']);
+
+        rows.push({
+          name: rowData['NAME'],
+          email: rowData['EMAIL'],
+          password: await this.hashProvider.hashPassword(organizationId),
+          organizationId,
+          role: Role.AGENT,
+        });
+      }
+
+      const MAX_ROWS = 100;
+      if (rows.length > MAX_ROWS) {
+        throw new BadRequestException(`Maximum ${MAX_ROWS} rows allowed`);
+      }
+
+      const res = await this.prismaService.user.createMany({
+        data: rows,
+      });
+
+      return res;
+    } catch (error) {
+      this.logger.error('Excel sheet processing failed:', error);
+      throw error instanceof BadRequestException ||
+        error instanceof UnprocessableEntityException
+        ? error
+        : new InternalServerErrorException('Failed to process Excel sheet');
     }
   }
 }
