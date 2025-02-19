@@ -23,6 +23,24 @@ model Message {
   updatedAt  DateTime   @updatedAt
 }
 
+model FailedEmail {
+  id        String      @id @default(ulid())
+  email     String
+  subject   String
+  context   Json
+  type      String
+  attempts  Int         @default(0)
+  status    EmailStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum TicketStatus {
   OPEN
   CLOSED

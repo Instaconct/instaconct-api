@@ -41,7 +41,7 @@ model OrgManagementSDK {
 
   @@id([organizationId, sdk])
 }
- 
+
 enum Role {
   SUPER_MANAGER
   MANAGER

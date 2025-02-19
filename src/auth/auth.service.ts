@@ -97,11 +97,26 @@ export class AuthService {
       if (error instanceof ConflictException) {
         throw error;
       }
-
-      // prisma unique constraint error
-      if (error.code === 'P2002') {
+      if (error.meta.target === 'Organization_name_key') {
         throw new ConflictException('Organization name already exists');
       }
+
+      if (error.meta.target === 'User_phone_key') {
+        throw new ConflictException('Phone number already exists');
+      }
+
+      if (error.meta.target === 'User_email_key') {
+        throw new ConflictException('Email already exists');
+      }
+
+      this.prismaService.organization
+        .delete({
+          where: { name: userRegistrationDto.organization.name },
+        })
+        .catch((error) => {
+          this.logger.error("Couldn't delete organization", error);
+        });
+
       throw new InternalServerErrorException();
     } finally {
       await this.prismaService.$disconnect();

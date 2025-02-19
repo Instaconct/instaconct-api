@@ -10,6 +10,7 @@ export class MailConsumer extends WorkerHost {
     super();
   }
   async process(job: Job<any, any, string>): Promise<any> {
+    const { email, subject, context, type } = job.data;
     try {
       switch (job.name) {
         case 'send-email':
@@ -22,6 +23,7 @@ export class MailConsumer extends WorkerHost {
       }
     } catch (error) {
       this.logger.error(`Error processing job ${job.id}: ${error}`);
+      await this.mailService.storeFailedEmail(email, subject, context, type);
       throw error;
     }
   }
