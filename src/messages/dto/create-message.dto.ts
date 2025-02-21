@@ -1,10 +1,17 @@
 import { SenderType } from '@prisma/client';
-import { IsEnum, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, ValidateIf } from 'class-validator';
 import { IsULID } from 'src/shared/decorator/is-ulid.decorator';
 
 export class CreateMessageDto {
   @IsULID()
-  senderId: string;
+  @IsOptional()
+  @ValidateIf((o) => !o.customerId)
+  senderId?: string;
+
+  @IsULID()
+  @IsOptional()
+  @ValidateIf((o) => !o.senderId)
+  customerId?: string;
 
   @IsULID()
   ticketId: string;

@@ -1,10 +1,10 @@
-import { Role } from '@prisma/client';
 import {
   IsString,
   IsEmail,
   IsOptional,
   Length,
   IsNotEmpty,
+  IsPhoneNumber,
 } from 'class-validator';
 
 export class CreateCustomerDto {
@@ -18,10 +18,7 @@ export class CreateCustomerDto {
   @Length(1, 255)
   email: string;
 
-  @IsString()
+  @IsPhoneNumber()
   @IsOptional()
-  @Length(1, 255)
   phone?: string;
-
-  role: Role = Role.CUSTOMER;
 }

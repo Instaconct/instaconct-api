@@ -1,0 +1,213 @@
+asyncapi: 3.0.0
+info:
+  title: InstaContact Chat API
+  version: 1.0.0
+  description: WebSocket API for real-time customer support chat system
+  tags:
+    - name: chat
+      description: Chat related operations
+    - name: tickets
+      description: Ticket management operations
+servers:
+  production:
+    host: 'localhost:3000'
+    protocol: ws
+    description: WebSocket server for chat communication
+channels:
+  join-conversation:
+    address: join-conversation
+    messages:
+      publish.message.0:
+        name: userJoined
+        payload:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 01HGD4ABCD123456
+            name:
+              type: string
+              example: John Doe
+            email:
+              type: string
+              example: omarsabra509@test.com
+            role:
+              type: string
+              enum:
+                - SUPER_MANAGER
+                - MANAGER
+                - AGENT
+              example: AGENT
+      publish.message.1:
+        name: error
+        payload:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Ticket not found
+      subscribe.message:
+        payload:
+          type: object
+          properties:
+            ticketId:
+              type: string
+              description: ULID of the ticket to join
+              example: 01HGD4ABCD123456
+  message:
+    address: message
+    messages:
+      publish.message:
+        payload:
+          type: object
+          properties:
+            ticketId:
+              type: string
+              example: 01HGD4ABCD123456
+            id:
+              type: string
+              example: 01HGD4ABCD123456
+            createdAt:
+              type: string
+              format: date-time
+              example: '2024-02-23T12:00:00Z'
+            updatedAt:
+              type: string
+              format: date-time
+              example: '2024-02-23T12:00:00Z'
+            customerId:
+              type: string
+              nullable: true
+              example: 01HGD4ABCD123456
+            senderId:
+              type: string
+              nullable: true
+              example: 01HGD4ABCD123456
+            senderType:
+              type: string
+              enum:
+              - AGENT
+              - BOT
+              - CUSTOMER
+              example: AGENT
+            content:
+              type: string
+              example: 'Hello, how can I help you today?'
+      subscribe.message:
+        payload:
+          type: string
+          description: Message content
+          example: 'Hello, how can I help you today?'
+  typing:
+    address: typing
+    messages:
+      publish.message:
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+              example: 01HGD4ABCD123456
+            isTyping:
+              type: boolean
+              default: true
+      subscribe.message:
+        payload:
+          type: object
+          description: Empty object as no payload is needed
+
+  end-conversation:
+    address: end-conversation
+    messages:
+      publish.message:
+        payload:
+          type: object
+          properties:
+            ticketId:
+              type: string
+              example: 01HGD4ABCD123456
+            closedBy:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: 01HGD4ABCD123456
+                name:
+                  type: string
+                  example: John Doe
+                role:
+                  type: string
+                  example: AGENT
+            closedAt:
+              type: string
+              format: date-time
+              example: '2024-02-23T12:00:00Z'
+      subscribe.message:
+        payload:
+          type: object
+          description: Empty object as no payload is needed
+operations:
+  join-conversation.publish:
+    action: receive
+    channel:
+      $ref: '#/channels/join-conversation'
+    summary: Server responses for join events
+    messages:
+      - $ref: '#/channels/join-conversation/messages/publish.message.0'
+      - $ref: '#/channels/join-conversation/messages/publish.message.1'
+  join-conversation.subscribe:
+    action: send
+    channel:
+      $ref: '#/channels/join-conversation'
+    summary: Join a chat conversation/ticket
+    messages:
+      - $ref: '#/channels/join-conversation/messages/subscribe.message'
+  message.publish:
+    action: receive
+    channel:
+      $ref: '#/channels/message'
+    summary: Receive messages in the conversation
+    messages:
+      - $ref: '#/channels/message/messages/publish.message'
+  message.subscribe:
+    action: send
+    channel:
+      $ref: '#/channels/message'
+    summary: Send a message in the conversation
+    messages:
+      - $ref: '#/channels/message/messages/subscribe.message'
+  typing.publish:
+    action: receive
+    channel:
+      $ref: '#/channels/typing'
+    summary: Receive typing indicators
+    messages:
+      - $ref: '#/channels/typing/messages/publish.message'
+  typing.subscribe:
+    action: send
+    channel:
+      $ref: '#/channels/typing'
+    summary: Indicate user is typing
+    messages:
+      - $ref: '#/channels/typing/messages/subscribe.message'
+  end-conversation.publish:
+    action: receive
+    channel:
+      $ref: '#/channels/end-conversation'
+    summary: Notification that conversation has ended
+    messages:
+      - $ref: '#/channels/end-conversation/messages/publish.message'
+  end-conversation.subscribe:
+    action: send
+    channel:
+      $ref: '#/channels/end-conversation'
+    summary: End the conversation (agents only)
+    messages:
+      - $ref: '#/channels/end-conversation/messages/subscribe.message'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication

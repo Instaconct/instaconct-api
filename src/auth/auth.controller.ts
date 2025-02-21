@@ -7,6 +7,7 @@ import {
   Post,
   Get,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -18,6 +19,7 @@ import { AuthenticationGuard } from './guard/authentication.guard';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { RestPasswordDto } from './dto/rest-password.dto';
 import { VerifyTokenDto } from './dto/verfiy-token.dto';
+import { SdkAuthDto } from './dto/sdk-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -26,6 +28,14 @@ export class AuthController {
   @Post('/register')
   async register(@Body() userRegistrationDto: RegisterDto) {
     return this.authService.register(userRegistrationDto);
+  }
+
+  @Post('/sdk')
+  async createSDK(
+    @Body() sdkAuthDto: SdkAuthDto,
+    @Headers('x-api-key') apiKey: string,
+  ) {
+    return this.authService.authenticateSdk(sdkAuthDto, apiKey);
   }
 
   @Post('/login')

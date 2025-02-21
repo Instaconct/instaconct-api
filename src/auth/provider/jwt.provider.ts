@@ -103,4 +103,14 @@ export class Jwt {
       },
     );
   }
+
+  async generateSdkToken(organizationId: string, sdkType: string) {
+    return this.jwtService.sign(
+      { organizationId, sdkType },
+      {
+        secret: this.configService.getOrThrow('JWT_SECRET'),
+        expiresIn: '1h',
+      },
+    );
+  }
 }

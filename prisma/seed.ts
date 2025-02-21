@@ -19,17 +19,12 @@ async function main() {
     password: faker.internet.password(),
     organizationId: organization.id,
     phone: faker.phone.number(),
-    role: faker.helpers.arrayElement([
-      'CUSTOMER',
-      'AGENT',
-      'MANAGER',
-      'SUPER_MANAGER',
-    ]),
+    role: faker.helpers.arrayElement(['AGENT', 'MANAGER', 'SUPER_MANAGER']),
     is_verified: faker.datatype.boolean(),
   }));
 
   // Insert the fake users into the database.
-  // Using createMany for performance; note that createMany may have limitations (like not running hooks).
+  // Using createMany  for performance; note that createMany may have limitations (like not running hooks).
   await prisma.user.createMany({
     data: usersData,
   });

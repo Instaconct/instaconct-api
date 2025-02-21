@@ -1,17 +1,19 @@
 import { Socket } from 'socket.io';
 import { Jwt } from 'src/auth/provider/jwt.provider';
-import { TicketService } from 'src/ticket/ticket.service';
+import { OrganizationService } from 'src/organization/organization.service';
+import { UserService } from 'src/user/user.service';
 
 type SocketMiddleware = (socket: Socket, next: (err?: Error) => void) => void;
 
 export const AuthWsMiddleware = (
-  ticketService: TicketService,
+  organizationService: OrganizationService,
+  userService: UserService,
   jwtProvider: Jwt,
 ): SocketMiddleware => {
   return async (socket: Socket, next) => {
     try {
       const token =
-        socket.handshake?.auth?.token || socket.handshake?.headers['token'];
+        socket.handshake?.auth?.token || socket.handshake?.headers['x-api-key'];
 
       if (!token) {
         throw new Error('Unauthorized');
@@ -23,12 +25,23 @@ export const AuthWsMiddleware = (
         throw new Error('Unauthorized');
       }
 
-      if (payload.ticketId) {
-        const ticket = await ticketService.findOne(payload.ticketId);
-        if (!ticket) {
+      if (payload.sdkType) {
+        const organization = await organizationService.findOne(
+          payload.organizationId,
+        );
+
+        if (!organization) {
           throw new Error('Unauthorized');
         }
-        socket.data.ticketId = payload.ticketId;
+        socket.data.organization = organization;
+        socket.data.organizationId = organization.id;
+      } else {
+        const user = await userService.findOneById(payload.id);
+        if (!user) {
+          throw new Error('Unauthorized');
+        }
+        socket.data.user = user;
+        socket.data.organizationId = user.organizationId;
       }
 
       next();

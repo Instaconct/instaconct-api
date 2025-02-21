@@ -18,6 +18,7 @@ import { MailService } from 'src/mail/mail.service';
 import { EMAIL_TYPES } from 'src/mail/email.types';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { SdkAuthDto } from './dto/sdk-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -154,7 +155,7 @@ export class AuthService {
 
   async login(email: string, plainPassword: string) {
     try {
-      const { password, ...user } = await this.prismaService.user.findUnique({
+      const user = await this.prismaService.user.findUnique({
         where: { email },
         include: { organization: true },
         omit: { password: false },
@@ -163,6 +164,8 @@ export class AuthService {
       if (!user) {
         throw new ConflictException('Invalid credentials');
       }
+
+      const password = user.password;
 
       const isPasswordValid = await this.hashProvider.comparePassword(
         plainPassword,
@@ -188,6 +191,8 @@ export class AuthService {
         user.email,
         refreshPayload,
       );
+
+      delete user.password;
 
       return { accessToken, refreshToken, user };
     } catch (error) {
@@ -352,6 +357,42 @@ export class AuthService {
     } catch (error) {
       this.logger.error("Couldn't revoke refresh token", error);
       throw new InternalServerErrorException();
+    }
+  }
+
+  async authenticateSdk(sdkAuthDto: SdkAuthDto, public_key: string) {
+    try {
+      if (!sdkAuthDto.private_key) {
+        throw new UnauthorizedException('Invalid SDK credentials');
+      }
+
+      if (!public_key) {
+        throw new UnauthorizedException('Invalid SDK credentials');
+      }
+
+      const sdk = await this.prismaService.orgManagementSDK.findFirst({
+        where: {
+          public_key: public_key,
+          private_key: sdkAuthDto.private_key,
+        },
+        include: {
+          organization: true,
+        },
+      });
+
+      if (!sdk) {
+        throw new UnauthorizedException('Invalid SDK credentials');
+      }
+
+      const token = await this.jwtProvider.generateSdkToken(
+        sdk.organizationId,
+        SDKType.WEB,
+      );
+
+      return { token, organizationId: sdk.organizationId };
+    } catch (error) {
+      this.logger.error("Couldn't authenticate SDK", error);
+      throw error;
     }
   }
 }

@@ -11,9 +11,11 @@ model User {
   token_expires_at DateTime?
   created_at       DateTime     @default(now())
   updated_at       DateTime     @updatedAt
-  role             Role         @default(CUSTOMER)
+  role             Role         @default(SUPER_MANAGER)
   messages         Message[]
-  tickets          Ticket[]
+
+  @@unique([email, organizationId])
+  @@index([email])
 }
 
 model Organization {
@@ -27,6 +29,7 @@ model Organization {
   users        User[]
   tickets      Ticket[]
   sdks         OrgManagementSDK[]
+  Customers    Customer[]
 }
 
 // Organization management SDK
@@ -46,7 +49,6 @@ enum Role {
   SUPER_MANAGER
   MANAGER
   AGENT
-  CUSTOMER
 }
 
 enum SDKType {

@@ -23,7 +23,7 @@ export class OrgSdkService {
         organizationId: organizationId,
       },
       omit: {
-        private_key: true,
+        // private_key: true,
         created_at: true,
         updated_at: true,
       },

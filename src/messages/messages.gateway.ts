@@ -15,26 +15,21 @@ import { AuthWsMiddleware } from './middleware/auth-ws.middleware';
 import { TicketService } from 'src/ticket/ticket.service';
 import { Jwt } from 'src/auth/provider/jwt.provider';
 import { joinConversationDto } from './dto/join-ticket.dto';
-import {
-  BadRequestException,
-  Logger,
-  UseFilters,
-  UsePipes,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
 import { UserService } from 'src/user/user.service';
 import { WebSocketExceptionFilter } from 'src/filters/ws-exception.filter';
+import { SenderType } from '@prisma/client';
 
 @UsePipes(
   new ValidationPipe({
-    // transform: true,
+    transform: true,
     exceptionFactory(validationErrors = []) {
       if (this.isDetailedOutputDisabled) {
         return new WsException('Bad request');
       }
 
       const errors = this.flattenValidationErrors(validationErrors);
-      console.log(errors);
+      console.log('from pipe', errors);
       throw new WsException(errors);
     },
   }),
@@ -58,36 +53,49 @@ export class MessagesGateway implements OnGatewayInit {
   ) {}
 
   async afterInit(@ConnectedSocket() socket: Socket) {
-    socket.use(AuthWsMiddleware(this.ticketService, this.jwtProvider) as any);
+    socket.use(
+      AuthWsMiddleware(
+        this.organizationService,
+        this.userService,
+        this.jwtProvider,
+      ) as any,
+    );
   }
 
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage('joinConversation')
+  /**
+   *
+   * @param socket
+   * @param content
+   * socket data if user is authenticated will have user info and organization id in socket.data
+   * if sdk will have organization info in socket.data
+   */
+  @SubscribeMessage('join-conversation')
   async handleJoin(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() socket: Socket,
     @MessageBody() content: joinConversationDto,
   ) {
-    throw new WsException('Invalid credentials.');
     try {
-      console.log('joinConversation', content);
-      const { userId } = content;
-      const { tickets, ...user } =
-        await this.userService.findOneByIdAndTicketOpen(userId);
-      if (!user || user instanceof BadRequestException) {
-        throw new WsException('User not found');
+      console.log('join-conversation', content);
+      const { ticketId } = content;
+      const { organizationId, user } = socket.data;
+      const ticket = await this.ticketService.findOne(ticketId, organizationId);
+      if (!ticket) {
+        throw new WsException('Ticket not found');
       }
-      const { ticketId } = client.data;
+      socket.data.ticketId = ticket.id;
 
-      if (!ticketId || ticketId !== tickets[0].id) {
-        throw new WsException('Unauthorized');
+      socket.join(ticket.id);
+
+      if (user) {
+        socket.to(ticket.id).emit('userJoined', user);
+        this.logger.log(`User ${user.id} joined conversati on ${ticket.id}`);
+      } else {
+        socket.data.user = ticket.customer;
+        socket.to(ticket.id);
       }
-
-      client.data.user = user;
-      client.join(tickets[0].id);
-      client.to(tickets[0].id).emit('userJoined', user);
-      this.logger.log(`User ${user.id} joined conversation ${tickets[0].id}`);
     } catch (error) {
       console.error(error);
       throw error;
@@ -107,8 +115,9 @@ export class MessagesGateway implements OnGatewayInit {
 
     const newMessage = await this.messagesService.create({
       ticketId,
-      senderId: user.id,
-      senderType: user.role,
+      senderId: user.role ? user.id : null,
+      customerId: user.role ? null : user.id,
+      senderType: user.role ? SenderType.AGENT : SenderType.CUSTOMER,
       content: message,
     });
 
@@ -126,17 +135,44 @@ export class MessagesGateway implements OnGatewayInit {
     if (!user) {
       return;
     }
+
     socket.to(ticketId).emit('typing', {
       userId: user.id,
       isTyping: true,
     });
+  }
 
-    // Automatically reset after 3 seconds
-    setTimeout(() => {
-      socket.to(ticketId).emit('typing', {
-        userId: user.id,
-        isTyping: false,
+  @SubscribeMessage('end-conversation')
+  async handleEndConversation(@ConnectedSocket() socket: Socket) {
+    try {
+      const { ticketId, user } = socket.data;
+
+      if (!user || !ticketId) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Only agents can close tickets
+      if (!user.role || user.role === 'CUSTOMER') {
+        throw new WsException('Unauthorized: Only agents can close tickets');
+      }
+
+      const closedTicket = await this.ticketService.closeTicket(ticketId);
+
+      // Notify all users in the room that the conversation has ended
+      socket.to(ticketId).emit('conversation-ended', {
+        ticketId,
+        closedBy: user,
+        closedAt: closedTicket.closedAt,
       });
-    }, 3000);
+
+      // Leave the room
+      socket.leave(ticketId);
+
+      this.logger.debug('conversation ended successfully');
+      this.logger.log(`User ${user.id} left conversation ${ticketId}`);
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   }
 }

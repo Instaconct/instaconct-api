@@ -2,20 +2,39 @@ model Ticket {
   id             String       @id @default(ulid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   organizationId String
-  customer       User         @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  customerId     String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   closedAt       DateTime?
   messages       Message[]
   status         TicketStatus @default(OPEN)
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId     String
+}
+
+model Customer {
+  id             String       @id @default(ulid())
+  name           String       @db.VarChar(255)
+  email          String?      @db.VarChar(255)
+  phone          String?      @db.VarChar(255)
+  metadata       Json? // For storing custom customer data
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+  tickets        Ticket[]
+  messages       Message[]
+
+  @@unique([email, organizationId])
+  @@index([email])
 }
 
 model Message {
   id         String     @id @default(ulid())
   ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  sender     User       @relation(fields: [senderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  senderId   String
+  sender     User?      @relation(fields: [senderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  senderId   String?
+  customer   Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  customerId String?
   senderType SenderType @default(CUSTOMER)
   ticketId   String
   content    String
