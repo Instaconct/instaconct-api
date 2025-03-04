@@ -1,0 +1,131 @@
+import { UserService } from './user.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from '@prisma/client';
+import { FilterUserDto } from './dto/filter-user.dto';
+export declare class UserController {
+    private readonly userService;
+    constructor(userService: UserService);
+    create(createUserDto: CreateUserDto): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+    createAgent(createUserDto: CreateUserDto): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+    createAgentCsv(file: Express.Multer.File, user: User): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    createAgentExcel(file: Express.Multer.File, user: User): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    createManager(createUserDto: CreateUserDto): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+    findAll(filterUserDto: FilterUserDto, haveAccess: boolean): Promise<{
+        data: {
+            id: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            email: string;
+            password: string | null;
+            organizationId: string;
+            phone: string | null;
+            role: import("@prisma/client").$Enums.Role;
+            is_verified: boolean;
+            token: string | null;
+            token_expires_at: Date | null;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            take: number;
+            pageCount: number;
+        };
+    }>;
+    findAllAgent(user: User): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }[]>;
+    findOne(id: string, haveAccess: boolean): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+    update(id: string, updateUserDto: UpdateUserDto, user: User): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+    remove(id: string, user: User): Promise<{
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        email: string;
+        password: string | null;
+        organizationId: string;
+        phone: string | null;
+        role: import("@prisma/client").$Enums.Role;
+        is_verified: boolean;
+        token: string | null;
+        token_expires_at: Date | null;
+    }>;
+}
