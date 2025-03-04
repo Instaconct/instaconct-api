@@ -18,10 +18,10 @@ import { User } from '@prisma/client';
 import { AuthenticationGuard } from './guard/authentication.guard';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { RestPasswordDto } from './dto/rest-password.dto';
-import { VerifyTokenDto } from './dto/verfiy-token.dto';
-import { SdkAuthDto } from './dto/sdk-auth.dto';
+import { SdkAuthDto } from './dto/sdk-auth.dto'; 
+import { VerifyTokenDto } from './dto/verify-token.dto';
 
-@Controller('auth')
+ @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

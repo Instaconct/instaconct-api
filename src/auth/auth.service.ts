@@ -197,7 +197,7 @@ export class AuthService {
       return { accessToken, refreshToken, user };
     } catch (error) {
       this.logger.error("Couldn't login", error);
-      throw new InternalServerErrorException();
+      throw error; // throw error to be caught by global exception filter
     } finally {
       await this.prismaService.$disconnect();
     }
