@@ -14,6 +14,8 @@ RUN npm install
 
 COPY . .
 
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 RUN npx prisma generate
 
 RUN npm run build
