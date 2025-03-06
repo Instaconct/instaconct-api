@@ -94,31 +94,50 @@ export class AuthService {
 
       return { accessToken, refreshToken, user };
     } catch (error) {
-      this.logger.error("Couldn't register", error);
+      this.logger.error("Registration failed", { error, details: error.message });
+
+      // Clean up organization if it was created
+      if (error.meta?.target !== 'Organization_name_key') {
+        try {
+          await this.prismaService.organization.delete({
+            where: { name: userRegistrationDto.organization.name },
+          });
+        } catch (deleteError) {
+          this.logger.error("Failed to clean up organization during error handling", {
+            error: deleteError,
+            organizationName: userRegistrationDto.organization.name
+          });
+        }
+      }
+
+      // Handle known error cases
       if (error instanceof ConflictException) {
         throw error;
       }
-      if (error.meta.target === 'Organization_name_key') {
-        throw new ConflictException('Organization name already exists');
+
+      // Handle Prisma unique constraint violations
+      const uniqueConstraintErrors = {
+        'Organization_name_key': 'Organization name already exists',
+        'User_phone_key': 'Phone number already exists',
+        'User_email_key': 'Email already exists'
+      };
+
+      const constraintError = uniqueConstraintErrors[error.meta?.target];
+      if (constraintError) {
+        throw new ConflictException(constraintError);
       }
 
-      if (error.meta.target === 'User_phone_key') {
-        throw new ConflictException('Phone number already exists');
-      }
+      // Log unexpected errors with more detail
+      this.logger.error("Unexpected error during registration", {
+        error,
+        stack: error.stack,
+        context: {
+          email: userRegistrationDto.email,
+          organizationName: userRegistrationDto.organization.name
+        }
+      });
 
-      if (error.meta.target === 'User_email_key') {
-        throw new ConflictException('Email already exists');
-      }
-
-      this.prismaService.organization
-        .delete({
-          where: { name: userRegistrationDto.organization.name },
-        })
-        .catch((error) => {
-          this.logger.error("Couldn't delete organization", error);
-        });
-
-      throw new InternalServerErrorException();
+      throw new InternalServerErrorException('Registration failed due to an unexpected error');
     } finally {
       await this.prismaService.$disconnect();
     }
@@ -147,7 +166,7 @@ export class AuthService {
         throw error;
       }
 
-      throw new InternalServerErrorException();
+      throw new InternalServerErrorException(); 
     } finally {
       await this.prismaService.$disconnect();
     }

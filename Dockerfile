@@ -1,6 +1,9 @@
 # Use node:21-alpine as base image with build tools for bcrypt
 FROM node:21-alpine
 
+# Install dependencies required for bcrypt
+RUN apk add --no-cache python3 make g++ gcc
+
 WORKDIR /app
 
 # Copy package files first to leverage Docker cache
@@ -12,11 +15,10 @@ COPY prisma ./prisma/
 RUN npm install -g pnpm 
 
 RUN corepack enable && \
-    pnpm config set allow-build bcrypt prisma @nestjs/core @prisma/engines
-    
-# Approve builds for dependencies that need to run scripts
-RUN pnpm install --frozen-lockfile && \
-    pnpm approve-builds
+    pnpm config set allowed-build-scripts "*" && \
+    pnpm config set unsafe-perm true && \
+    pnpm install --frozen-lockfile
+
 
 # Copy all source files
 COPY . .
