@@ -10,17 +10,19 @@ COPY package.json pnpm-lock.yaml ./
 # Copy Prisma schema
 COPY prisma ./prisma/
 
-RUN npm install
+RUN npm install -g pnpm 
+
+RUN pnpm install
 
 COPY . .
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-RUN npx prisma generate
+RUN pnpx prisma generate
 
-RUN npm run build
+RUN pnpm run build
 
 EXPOSE 3000
 
 # Start the application in development mode
-CMD ["npm", "run", "start:prod"]
+CMD ["pnpm", "run", "start:prod"]
