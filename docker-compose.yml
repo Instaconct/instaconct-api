@@ -12,6 +12,7 @@ services:
       - .env.docker
     depends_on:
       - keydb
+      - mysql
     restart: always
 
   keydb:
@@ -22,5 +23,19 @@ services:
       - redis_data:/data
     restart: always
 
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "65355:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: instaconectDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: always
+
 volumes:
   redis_data:
+  mysql_data:
