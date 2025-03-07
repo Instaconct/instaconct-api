@@ -14,7 +14,7 @@ COPY prisma ./prisma/
 
 RUN npm install -g pnpm 
 
-RUN pnpm install --frozen-lockfile && pnpm approve-builds
+RUN pnpm install && pnpm approve-builds
 
 
 # Copy all source files
