@@ -23,8 +23,6 @@ jobs:
 
             git pull origin main
 
-            docker compose build app --no-cache
-            
-            docker compose up -d --no-deps app
+            docker compose build --no-cache; docker compose up
             
             echo "Deployment successful"
