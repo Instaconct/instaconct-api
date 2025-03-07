@@ -14,16 +14,11 @@ COPY prisma ./prisma/
 
 RUN npm install -g pnpm 
 
-RUN corepack enable && \
-    pnpm config set allowed-build-scripts "*" && \
-    pnpm config set unsafe-perm true && \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile && pnpm approve-builds
 
 
 # Copy all source files
 COPY . .
-
-ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Generate Prisma client
 RUN pnpx prisma generate
@@ -31,14 +26,8 @@ RUN pnpx prisma generate
 # Build the application
 RUN pnpm run build
 
-# Verify the build output exists
-RUN ls -la dist/
 
 EXPOSE 3000
 
-# Make sure we're using the correct start command that matches your package.json
-# If you want to use start:dev, keep this line
-CMD ["pnpm", "run", "start:dev"]
-
-# If you want to use start:prod, use this line instead
-# CMD ["pnpm", "run", "start:prod"]
+# Start the application
+CMD ["pnpm", "run", "start:prod"]
