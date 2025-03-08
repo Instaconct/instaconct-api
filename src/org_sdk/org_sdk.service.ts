@@ -41,7 +41,7 @@ export class OrgSdkService {
   private generateId = async (prefix: string) => {
     const { customAlphabet } = await import('nanoid');
     const nanoid = customAlphabet(
-      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYё0123456789',
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY0123456789',
       25,
     );
     return `${prefix}_${nanoid()}`;
