@@ -16,6 +16,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { TicketModule } from './ticket/ticket.module';
 import { OrgSdkModule } from './org_sdk/org_sdk.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MetaModule } from './meta/meta.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     OrganizationModule,
     TicketModule,
     OrgSdkModule,
+    MetaModule,
   ],
 })
 export class AppModule {
