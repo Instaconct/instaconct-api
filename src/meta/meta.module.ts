@@ -5,11 +5,13 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from 'src/auth/auth.module';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { MetaWebhookController } from './meta-webhook.controller';
+import { MessagesModule } from 'src/messages/messages.module';
+import { MetaMessengerService } from './meta-messenger.service';
 
-@Module({ 
-  imports:[HttpModule,AuthModule],
-  controllers: [MetaController],
-  providers: [MetaService,ConfigService,PrismaService],
-})  
-export class MetaModule {} 
- 
+@Module({
+  imports: [HttpModule, AuthModule, MessagesModule],
+  controllers: [MetaController, MetaWebhookController],
+  providers: [MetaService, ConfigService, PrismaService, MetaMessengerService],
+})
+export class MetaModule {}
