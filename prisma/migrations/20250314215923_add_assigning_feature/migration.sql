@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `Ticket` ADD COLUMN `assigendToId` VARCHAR(191) NULL,
+    MODIFY `status` ENUM('OPEN', 'CLOSED', 'ASSIGNED') NOT NULL DEFAULT 'OPEN';
+
+-- AddForeignKey
+ALTER TABLE `Ticket` ADD CONSTRAINT `Ticket_assigendToId_fkey` FOREIGN KEY (`assigendToId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

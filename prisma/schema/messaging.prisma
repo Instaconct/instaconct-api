@@ -9,6 +9,9 @@ model Ticket {
   status         TicketStatus @default(OPEN)
   customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerId     String
+  assigendTo     User?        @relation(fields: [assigendToId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assigendToId   String?
+  source         TicketSource @default(SDK)
 }
 
 model Customer {
@@ -63,6 +66,18 @@ enum EmailStatus {
 enum TicketStatus {
   OPEN
   CLOSED
+  ASSIGNED
+}
+
+enum TicketSource {
+  //TODO: SOON
+  // WEB
+  // MOBILE
+  FACEBOOK
+  INSTAGRAM
+  WHATSAPP
+  SDK
+  // EMAIL
 }
 
 enum SenderType {

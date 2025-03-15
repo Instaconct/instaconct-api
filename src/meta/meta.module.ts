@@ -10,8 +10,9 @@ import { MessagesModule } from 'src/messages/messages.module';
 import { MetaMessengerService } from './meta-messenger.service';
 
 @Module({
-  imports: [HttpModule, AuthModule, MessagesModule],
+  imports: [HttpModule, AuthModule, MetaModule, MessagesModule],
   controllers: [MetaController, MetaWebhookController],
   providers: [MetaService, ConfigService, PrismaService, MetaMessengerService],
+  exports: [MetaMessengerService],
 })
 export class MetaModule {}

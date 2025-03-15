@@ -1,28 +1,45 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MessagesService } from 'src/messages/messages.service';
-import { MetaPlatform, SenderType, TicketStatus } from '@prisma/client';
+import {
+  MetaPlatform,
+  SenderType,
+  TicketSource,
+  TicketStatus,
+} from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { WebhookMessageData } from './interfaces/message.interface';
 import { ConfigService } from '@nestjs/config';
+import { MessagesGateway } from 'src/messages/messages.gateway';
+import { ModuleRef } from '@nestjs/core';
 
 @Injectable()
-export class MetaMessengerService {
-  private logger = new Logger(MetaMessengerService.name);
-  private META_VERSION_API = 'v22.0';
+export class MetaMessengerService implements OnModuleInit {
+  private readonly logger = new Logger(MetaMessengerService.name);
+  private readonly META_VERSION_API = 'v22.0';
+  private messagesGateway: MessagesGateway;
+
   constructor(
-    private prisma: PrismaService,
-    private messagesService: MessagesService,
-    private httpService: HttpService,
-    private configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly messagesService: MessagesService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    private readonly moduleRef: ModuleRef,
   ) {
     this.META_VERSION_API = this.configService.get('META_VERSION_API');
+  }
+  onModuleInit() {
+    if (!this.messagesGateway) {
+      this.messagesGateway = this.moduleRef.get(MessagesGateway, {
+        strict: false,
+      });
+    }
   }
 
   async handleFacebookMessage(messaging: WebhookMessageData): Promise<void> {
     this.logger.debug('FACEBOOK RECEIVED MESSAGE', messaging);
-    const receverId = messaging.sender.id;
+    const senderId = messaging.sender.id;
     const pageId = messaging.recipient.id;
     const messageText = messaging.message?.text;
 
@@ -41,14 +58,14 @@ export class MetaMessengerService {
       where: {
         metadata: {
           path: '$.facebook_id',
-          equals: receverId,
+          equals: senderId,
         },
         organizationId: pageConnection.organizationId,
       },
     });
 
     if (!customer) {
-      const userInfo = await this.getFacebookUserInfo(receverId, pageId);
+      const userInfo = await this.getFacebookUserInfo(senderId, pageId);
 
       customer = await this.prisma.customer.create({
         data: {
@@ -56,7 +73,7 @@ export class MetaMessengerService {
           email: userInfo.email,
           organizationId: pageConnection.organizationId,
           metadata: {
-            facebook_id: receverId,
+            facebook_id: senderId,
             platform: MetaPlatform.FACEBOOK,
           },
         },
@@ -67,7 +84,9 @@ export class MetaMessengerService {
     let ticket = await this.prisma.ticket.findFirst({
       where: {
         customerId: customer.id,
-        status: TicketStatus.OPEN,
+        status: {
+          in: [TicketStatus.OPEN, TicketStatus.ASSIGNED],
+        },
       },
     });
 
@@ -76,16 +95,19 @@ export class MetaMessengerService {
         data: {
           organization: { connect: { id: pageConnection.organizationId } },
           customer: { connect: { id: customer.id } },
+          source: TicketSource.FACEBOOK,
         },
       });
     }
 
-    await this.messagesService.create({
+    const newMessage = await this.messagesService.create({
       content: messageText,
       ticketId: ticket.id,
       customerId: customer.id,
       senderType: SenderType.CUSTOMER,
     });
+
+    this.messagesGateway.emitMessageToRoom(ticket.id, newMessage);
   }
 
   async handleInstagramMessage(_messaging: WebhookMessageData): Promise<void> {
@@ -158,5 +180,55 @@ export class MetaMessengerService {
       },
     });
     return pageConnection.accessToken;
+  }
+
+  async handleOutgoingMessage(
+    ticketId: string,
+    message: string,
+  ): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { customer: true },
+    });
+
+    try {
+      if (!ticket) {
+        this.logger.error(`Ticket not found: ${ticketId}`);
+        return;
+      }
+
+      // Check if this is a Meta platform customer
+      const customerMetadata = ticket.customer.metadata as any;
+      if (!customerMetadata || !customerMetadata.facebook_id) {
+        this.logger.debug('Not a Facebook customer, skipping outgoing message');
+        return;
+      }
+
+      // Find the page connection for this organization
+      const pageConnection = await this.prisma.metaPageConnection.findFirst({
+        where: {
+          organizationId: ticket.customer.organizationId,
+          platform: MetaPlatform.FACEBOOK,
+        },
+      });
+
+      if (!pageConnection) {
+        this.logger.error(
+          'No Facebook page connection found for this organization',
+        );
+        return;
+      }
+
+      // Send message to Facebook
+      await this.sendFacebookMessage(
+        pageConnection.pageId,
+        customerMetadata.facebook_id,
+        message,
+      );
+
+      this.logger.debug(`Message sent to Facebook: ${message}`);
+    } catch (error) {
+      this.logger.error('Error sending message to Facebook', error);
+    }
   }
 }
