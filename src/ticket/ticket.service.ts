@@ -103,9 +103,9 @@ export class TicketService {
     return await this.prismaService.ticket.update({
       where: { id: ticketId },
       data: {
-        assigendTo: { connect: { id: agentId } },
+        assignedTo: { connect: { id: agentId } },
         status: TicketStatus.ASSIGNED,
       },
-    });
+    }); 
   }
 }

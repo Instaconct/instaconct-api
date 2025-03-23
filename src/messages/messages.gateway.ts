@@ -110,7 +110,7 @@ export class MessagesGateway implements OnGatewayInit, OnModuleInit {
       if (user) {
         await this.ticketService.assignAgent(ticket.id, user.id);
         socket.to(ticket.id).emit('userJoined', user);
-        this.logger.log(`User ${user.id} joined conversati on ${ticket.id}`);
+        this.logger.log(`User ${user.id} joined conversant on ${ticket.id}`);
       } else {
         socket.data.user = ticket.customer;
         socket.to(ticket.id);
