@@ -28,7 +28,7 @@ export class MetaWebhookController {
     );
 
     if (mode === 'subscribe' && token === verifyToken) {
-      return challenge;
+      return challenge.replace(/\D/g, '');
     }
 
     throw new Error('Webhook verification failed');
