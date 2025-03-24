@@ -13,6 +13,7 @@ model User {
   updated_at       DateTime     @updatedAt
   role             Role         @default(SUPER_MANAGER)
   messages         Message[]
+  Ticket           Ticket[]
 
   @@unique([email, organizationId])
   @@index([email])

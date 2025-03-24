@@ -14,12 +14,11 @@ export class MetaController {
     private metaService: MetaService,
     private configService: ConfigService,
     private prismaService: PrismaService,
-  ) {} 
- 
+  ) {}
 
   // @UseGuards(AuthenticationGuard,RolesGuard)
   // @Roles(Role.SUPER_MANAGER)
-  @Get('connect') 
+  @Get('connect')
   async connectMeta(@Req() req, @Res() res: Response) {
     const user = req.user ?? {
       id: '01JP2TB8ZCRMTM9322HTNQXFJH',
@@ -28,12 +27,12 @@ export class MetaController {
       phone: '+201024638614',
       organizationId: '01JP2TB8YTGY9P5ENX22CGXPKX',
       is_verified: false,
-      created_at: "2025-03-11T14:39:40.012Z",
-      updated_at: "2025-03-11T14:39:40.012Z",
-      role: 'SUPER_MANAGER'
+      created_at: '2025-03-11T14:39:40.012Z',
+      updated_at: '2025-03-11T14:39:40.012Z',
+      role: 'SUPER_MANAGER',
     };
     const state = crypto.randomUUID();
-    
+
     console.log(user);
     await this.prismaService.metaAuthState.create({
       data: {
@@ -43,14 +42,13 @@ export class MetaController {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       },
     });
-    
+
     const redirectUri = this.configService.get<string>('META_REDIRECT_URI');
     console.log(redirectUri);
     const authUrl = this.metaService.getAuthorizationUrl(redirectUri, state);
-    
-    return res.redirect(authUrl);
-  }  
 
+    return res.redirect(authUrl);
+  }
 
   @Get('callback')
   async metaCallback(
@@ -59,44 +57,50 @@ export class MetaController {
     @Res() res: Response,
   ) {
     try {
-      
       // Verify state to prevent CSRF attacks
       const authState = await this.prismaService.metaAuthState.findUnique({
         where: { state },
       });
-      
+
       if (!authState || new Date() > authState.expiresAt) {
         return res.redirect('/auth/error?message=Invalid or expired state');
       }
-      
+
       // Exchange code for short-lived token
       const redirectUri = this.configService.get<string>('META_REDIRECT_URI');
-      const tokenData = await this.metaService.exchangeCodeForToken(code, redirectUri);
-      
+      const tokenData = await this.metaService.exchangeCodeForToken(
+        code,
+        redirectUri,
+      );
+
       // Exchange short-lived token for long-lived token
-      const longLivedTokenData = await this.metaService.getLongLivedToken(tokenData.access_token);
-      
+      const longLivedTokenData = await this.metaService.getLongLivedToken(
+        tokenData.access_token,
+      );
+
       // Get user's pages
-      const pages = await this.metaService.getUserPages(longLivedTokenData.access_token);
-      
+      const pages = await this.metaService.getUserPages(
+        longLivedTokenData.access_token,
+      );
+
       // Store user's Meta connection and pages
       await this.prismaService.metaConnection.create({
         data: {
           organizationId: authState.organizationId,
-          platform: MetaPlatform.FACEBOOK, 
+          platform: MetaPlatform.FACEBOOK,
           accessToken: longLivedTokenData.access_token,
           expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
           userId: authState.userId,
         },
       });
-      
+
       // Store each page connection
       for (const page of pages) {
         const pageAccessToken = await this.metaService.getPageAccessToken(
           longLivedTokenData.access_token,
           page.id,
         );
-        
+
         await this.prismaService.metaPageConnection.create({
           data: {
             organizationId: authState.organizationId,
@@ -107,16 +111,16 @@ export class MetaController {
           },
         });
       }
-      
+
       // Clean up the auth state
       await this.prismaService.metaAuthState.delete({
         where: { state },
       });
-      
+
       return res.redirect('/dashboard/integrations?success=true');
     } catch (error) {
       console.error('Meta callback error:', error);
       return res.redirect('/auth/error?message=Failed to connect Meta account');
     }
-  } 
-} 
+  }
+}

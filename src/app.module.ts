@@ -61,7 +61,7 @@ import { MetaModule } from './meta/meta.module';
         },
       },
     }),
-    ScheduleModule.forRoot(), 
+    ScheduleModule.forRoot(),
     MailModule,
     MessagesModule,
     AuthModule,

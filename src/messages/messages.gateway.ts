@@ -8,17 +8,24 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { MessagesService } from './messages.service';
-import { Server } from 'http';
-import { Socket } from 'socket.io';
+import { Socket, Server } from 'socket.io';
 import { OrganizationService } from 'src/organization/organization.service';
 import { AuthWsMiddleware } from './middleware/auth-ws.middleware';
 import { TicketService } from 'src/ticket/ticket.service';
 import { Jwt } from 'src/auth/provider/jwt.provider';
 import { joinConversationDto } from './dto/join-ticket.dto';
-import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Logger,
+  OnModuleInit,
+  UseFilters,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { UserService } from 'src/user/user.service';
 import { WebSocketExceptionFilter } from 'src/filters/ws-exception.filter';
-import { SenderType } from '@prisma/client';
+import { Message, SenderType, TicketSource } from '@prisma/client';
+import { MetaMessengerService } from 'src/meta/meta-messenger.service';
+import { ModuleRef } from '@nestjs/core';
 
 @UsePipes(
   new ValidationPipe({
@@ -41,8 +48,9 @@ import { SenderType } from '@prisma/client';
   },
   transports: ['websocket', 'polling'],
 })
-export class MessagesGateway implements OnGatewayInit {
+export class MessagesGateway implements OnGatewayInit, OnModuleInit {
   private readonly logger = new Logger(MessagesGateway.name);
+  private metaMessengerService: MetaMessengerService;
 
   constructor(
     private readonly messagesService: MessagesService,
@@ -50,7 +58,16 @@ export class MessagesGateway implements OnGatewayInit {
     private readonly ticketService: TicketService,
     private readonly userService: UserService,
     private readonly jwtProvider: Jwt,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit() {
+    if (!this.metaMessengerService) {
+      this.metaMessengerService = this.moduleRef.get(MetaMessengerService, {
+        strict: false,
+      });
+    }
+  }
 
   async afterInit(@ConnectedSocket() socket: Socket) {
     socket.use(
@@ -86,18 +103,20 @@ export class MessagesGateway implements OnGatewayInit {
         throw new WsException('Ticket not found');
       }
       socket.data.ticketId = ticket.id;
+      socket.data.ticket = ticket;
 
       socket.join(ticket.id);
 
       if (user) {
+        await this.ticketService.assignAgent(ticket.id, user.id);
         socket.to(ticket.id).emit('userJoined', user);
-        this.logger.log(`User ${user.id} joined conversati on ${ticket.id}`);
+        this.logger.log(`User ${user.id} joined conversant on ${ticket.id}`);
       } else {
         socket.data.user = ticket.customer;
         socket.to(ticket.id);
       }
     } catch (error) {
-      console.error(error);
+      this.logger.error('Error joining conversation', error);
       throw error;
     }
   }
@@ -107,7 +126,7 @@ export class MessagesGateway implements OnGatewayInit {
     @ConnectedSocket() client: Socket,
     @MessageBody() message: string,
   ) {
-    const { ticketId, user } = client.data;
+    const { ticketId, user, ticket } = client.data;
 
     if (!user || !ticketId) {
       throw new WsException('Unauthorized');
@@ -121,7 +140,13 @@ export class MessagesGateway implements OnGatewayInit {
       content: message,
     });
 
-    console.log(newMessage);
+    if (ticket.source === TicketSource.FACEBOOK && user.role) {
+      this.metaMessengerService.handleOutgoingMessage(
+        ticketId,
+        newMessage.content,
+      );
+      return;
+    }
 
     client.to(ticketId).emit('message', {
       ...newMessage,
@@ -152,7 +177,7 @@ export class MessagesGateway implements OnGatewayInit {
       }
 
       // Only agents can close tickets
-      if (!user.role || user.role === 'CUSTOMER') {
+      if (!user.role) {
         throw new WsException('Unauthorized: Only agents can close tickets');
       }
 
@@ -173,6 +198,17 @@ export class MessagesGateway implements OnGatewayInit {
     } catch (error) {
       console.error(error);
       throw error;
+    }
+  }
+
+  // helper function to emit a message to a room
+  emitMessageToRoom(roomId: string, message: Message) {
+    try {
+      this.logger.debug(`Emitting message to room ${roomId}`);
+
+      this.server.to(roomId).emit('message', message);
+    } catch (error) {
+      this.logger.error('Error emitting message to room', error);
     }
   }
 }
