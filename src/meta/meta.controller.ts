@@ -16,8 +16,8 @@ export class MetaController {
     private prismaService: PrismaService,
   ) {}
 
-  // @UseGuards(AuthenticationGuard,RolesGuard)
-  // @Roles(Role.SUPER_MANAGER)
+  @UseGuards(AuthenticationGuard, RolesGuard)
+  @Roles(Role.SUPER_MANAGER)
   @Get('connect')
   async connectMeta(@Req() req, @Res() res: Response) {
     const user = req.user ?? {
