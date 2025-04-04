@@ -17,6 +17,7 @@ import { TicketModule } from './ticket/ticket.module';
 import { OrgSdkModule } from './org_sdk/org_sdk.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MetaModule } from './meta/meta.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MetaModule } from './meta/meta.module';
     }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
+        ttl: 1000 * 60 * 60 * 5, // 5 hours
         stores: [
           createKeyv(
             `redis://${configService.getOrThrow('REDIS_HOST')}:${configService.getOrThrow('REDIS_PORT')}`,
@@ -71,6 +73,7 @@ import { MetaModule } from './meta/meta.module';
     TicketModule,
     OrgSdkModule,
     MetaModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {

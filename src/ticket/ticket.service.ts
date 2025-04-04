@@ -83,6 +83,7 @@ export class TicketService {
       where: { id: ticketId },
       data: {
         status: TicketStatus.CLOSED,
+        closedAt: new Date(),
       },
     });
   }
@@ -106,6 +107,6 @@ export class TicketService {
         assignedTo: { connect: { id: agentId } },
         status: TicketStatus.ASSIGNED,
       },
-    }); 
+    });
   }
 }
