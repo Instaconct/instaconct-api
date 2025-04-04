@@ -21,8 +21,10 @@ jobs:
           script: |
             cd ${{ secrets.SERVER_PATH }}
 
+            docker stop $(docker ps -aq) && docker rm $(docker ps -aq) && docker system prune -af && docker volume prune -f
+
             git pull origin main
 
-            docker compose build --no-cache; docker compose up -d
+            docker compose up -d
             
             echo "Deployment successful"

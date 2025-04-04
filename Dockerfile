@@ -7,8 +7,9 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
 RUN npm install -g pnpm 
-
-RUN pnpm install --prod && pnpm approve-builds 
+    
+RUN pnpm approve-builds  \ 
+    && pnpm install
 
 COPY . .
 
