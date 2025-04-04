@@ -27,4 +27,10 @@ export class AnalyticsController {
       user.organizationId,
     );
   }
+
+  @Get('agent/performance')
+  @Roles(Role.AGENT)
+  getAgentPerformance(@Query('range') range: string, @GetUser() user: User) {
+    return this.analyticsService.fetchAgentPerformance(user.id, range);
+  }
 }

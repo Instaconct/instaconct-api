@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { TicketStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -6,7 +7,6 @@ export class AnalyticsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async fetchTicketStatistics(timeRange: string, organizationId: string) {
-    console.log('Fetching ticket statistics...'); // Debug log
     if (!['day', 'week', 'month'].includes(timeRange) || !timeRange) {
       throw new BadRequestException('Invalid time range specified');
     }
@@ -37,9 +37,9 @@ export class AnalyticsService {
     };
 
     tickets.forEach((ticket) => {
-      if (ticket.status === 'OPEN') statusCounts.open++;
-      else if (ticket.status === 'CLOSED') statusCounts.closed++;
-      else if (ticket.status === 'ASSIGNED') statusCounts.assigned++;
+      if (ticket.status === TicketStatus.OPEN) statusCounts.open++;
+      else if (ticket.status === TicketStatus.CLOSED) statusCounts.closed++;
+      else if (ticket.status === TicketStatus.ASSIGNED) statusCounts.assigned++;
     });
 
     const totalTickets = tickets.length;
@@ -101,7 +101,7 @@ export class AnalyticsService {
         ],
       },
       statusDistribution: {
-        labels: ['Open', 'Closed', 'Assigned'],
+        labels: [TicketStatus.OPEN, TicketStatus.CLOSED, TicketStatus.ASSIGNED],
         datasets: [
           {
             data: [openTickets, closedTickets, assignedTickets],
@@ -122,6 +122,119 @@ export class AnalyticsService {
       },
       ticketsByTime,
       ticketsBySource,
+    };
+  }
+
+  async fetchAgentPerformance(agentId: string, timeRange: string) {
+    if (!['day', 'week', 'month'].includes(timeRange) || !timeRange) {
+      throw new BadRequestException('Invalid time range specified');
+    }
+
+    const startDate = this.getStartDate(new Date(), timeRange);
+
+    const [tickets, messages] = await Promise.all([
+      this.prismaService.ticket.findMany({
+        where: {
+          assignedToId: agentId,
+          createdAt: { gte: startDate },
+        },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          closedAt: true,
+          source: true,
+          messages: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+      this.prismaService.message.findMany({
+        where: {
+          senderId: agentId,
+          createdAt: { gte: startDate },
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          ticketId: true,
+        },
+      }),
+    ]);
+
+    const closedTickets = tickets.filter(
+      (t) => t.status === TicketStatus.CLOSED,
+    );
+    const openTickets = tickets.filter((t) => t.status === TicketStatus.OPEN);
+    const assignedTickets = tickets.filter(
+      (t) => t.status === TicketStatus.ASSIGNED,
+    );
+
+    const responseTimes = tickets.flatMap((ticket) => {
+      const agentMessages = ticket.messages
+        .filter((m) => m.createdAt > ticket.createdAt)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+      return agentMessages.length > 0
+        ? (agentMessages[0].createdAt.getTime() - ticket.createdAt.getTime()) /
+            (1000 * 60)
+        : [];
+    });
+
+    const avgResponseTime =
+      responseTimes.length > 0
+        ? Math.round(
+            responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length,
+          )
+        : null;
+
+    const avgResolutionTime = this.calculateAvgResolutionTime(tickets);
+
+    return {
+      agentId,
+      timeRange,
+      period: { start: startDate, end: new Date() },
+      summary: {
+        totalTickets: tickets.length,
+        closedTickets: closedTickets.length,
+        openTickets: openTickets.length,
+        assignedTickets: assignedTickets.length,
+        closureRate:
+          tickets.length > 0
+            ? Math.round((closedTickets.length / tickets.length) * 100)
+            : 0,
+        avgResponseTime,
+        avgResolutionTime,
+        totalMessages: messages.length,
+        messagesPerTicket:
+          tickets.length > 0 ? Math.round(messages.length / tickets.length) : 0,
+      },
+      ticketsBySource: this.groupTicketsBySource(tickets),
+      ticketsByStatus: {
+        labels: [TicketStatus.OPEN, TicketStatus.CLOSED, TicketStatus.ASSIGNED],
+        datasets: [
+          {
+            data: [
+              openTickets.length,
+              closedTickets.length,
+              assignedTickets.length,
+            ],
+          },
+        ],
+      },
+      responseTimes:
+        responseTimes.length > 0
+          ? {
+              min: Math.round(Math.min(...responseTimes)),
+              max: Math.round(Math.max(...responseTimes)),
+              avg: Math.round(
+                responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length,
+              ),
+            }
+          : null,
     };
   }
 
@@ -178,7 +291,7 @@ export class AnalyticsService {
 
     // Filter closed tickets with resolution time
     const closedTickets = tickets.filter(
-      (t) => t.status === 'CLOSED' && t.closedAt,
+      (t) => t.status === TicketStatus.CLOSED && t.closedAt,
     );
 
     closedTickets.forEach((ticket) => {
@@ -282,7 +395,8 @@ export class AnalyticsService {
       }
 
       intervalMap[intervalKey].totalTickets += 1;
-      if (ticket.status === 'OPEN') intervalMap[intervalKey].openTickets += 1;
+      if (ticket.status === TicketStatus.OPEN)
+        intervalMap[intervalKey].openTickets += 1;
       if (ticket.status === 'CLOSED')
         intervalMap[intervalKey].closedTickets += 1;
       if (ticket.status === 'ASSIGNED')
