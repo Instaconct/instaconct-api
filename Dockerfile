@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:23-slim
 
 WORKDIR /app
 
@@ -7,9 +7,9 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
 RUN npm install -g pnpm 
-    
-RUN pnpm approve-builds  \ 
-    && pnpm install
+
+RUN pnpm install  \ 
+    && pnpm approve-builds
 
 COPY . .
 
