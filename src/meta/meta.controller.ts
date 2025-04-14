@@ -33,7 +33,6 @@ export class MetaController {
     };
     const state = crypto.randomUUID();
 
-    console.log(user);
     await this.prismaService.metaAuthState.create({
       data: {
         state,
@@ -56,6 +55,8 @@ export class MetaController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
+    const frontEndUrl = this.configService.get<string>('FRONTEND_URL');
+
     try {
       // Verify state to prevent CSRF attacks
       const authState = await this.prismaService.metaAuthState.findUnique({
@@ -117,10 +118,16 @@ export class MetaController {
         where: { state },
       });
 
-      return res.redirect('/dashboard/integrations?success=true');
+      if (!frontEndUrl) {
+        return res.redirect('/dashboard/integrations?success=true');
+      }
+
+      return res.redirect(`${frontEndUrl}/dashboard/integrations?success=true`);
     } catch (error) {
       console.error('Meta callback error:', error);
-      return res.redirect('/auth/error?message=Failed to connect Meta account');
+      return res.redirect(
+        `${frontEndUrl}/auth/error?message=Failed to connect Meta account`,
+      );
     }
   }
 }
