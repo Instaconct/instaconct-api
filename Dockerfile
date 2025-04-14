@@ -1,5 +1,11 @@
 FROM node:23-slim
 
+# Install OpenSSL and other required dependencies
+RUN apt-get update -y && \
+    apt-get install -y openssl ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
