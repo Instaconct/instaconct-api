@@ -15,7 +15,6 @@ import { MailModule } from './mail/mail.module';
 import { BullModule } from '@nestjs/bullmq';
 import { TicketModule } from './ticket/ticket.module';
 import { OrgSdkModule } from './org_sdk/org_sdk.module';
-import { ScheduleModule } from '@nestjs/schedule';
 import { MetaModule } from './meta/meta.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 
@@ -63,7 +62,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
         },
       },
     }),
-    ScheduleModule.forRoot(),
+    // ScheduleModule.forRoot(),
     MailModule,
     MessagesModule,
     AuthModule,
