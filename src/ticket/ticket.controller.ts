@@ -27,8 +27,8 @@ export class TicketController {
 
   @Get()
   @UseGuards(AuthenticationGuard)
-  findAll(@GetUser() userInfo: User) {
-    return this.ticketService.findAll(userInfo.organizationId);
+  findAll() {
+    return this.ticketService.findAll();
   }
 
   @Get('/:ticketId')

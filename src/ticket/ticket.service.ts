@@ -51,9 +51,8 @@ export class TicketService {
     }
   }
 
-  async findAll(organizationId: string) {
+  async findAll() {
     return this.prismaService.ticket.findMany({
-      where: { status: TicketStatus.OPEN, organizationId },
       include: {
         organization: true,
         customer: true,
