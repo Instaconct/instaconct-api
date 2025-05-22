@@ -88,7 +88,12 @@ export class AuthService {
       await this.mailService.sendEmail(
         user.email,
         'Account Created , Please Activate Your Email',
-        { url: process.env.DEFAULT_VERIFY_URL + `?token=${emailVerifyToken}` },
+        {
+          url:
+            process.env.DEFAULT_VERIFY_URL +
+            process.env.VERIFICATION_MAIL_URL +
+            `?token=${emailVerifyToken}`,
+        },
         EMAIL_TYPES.CONFIRM_EMAIL,
       );
 
@@ -163,7 +168,7 @@ export class AuthService {
 
       await this.prismaService.user.update({
         where: { id: user.id },
-        data: { token: null, is_verified: true },
+        data: { token: null, is_verified: true, token_expires_at: null },
       });
 
       return user;

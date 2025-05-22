@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   HttpStatus,
   ParseFilePipeBuilder,
+  HttpCode,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,25 +26,23 @@ import { CheckOwnership } from 'src/shared/decorator/check-owner.decorators';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { GetUser } from 'src/shared/decorator/user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ActivateDto } from './dto/activate.dto';
 
 @Controller('user')
-@UseGuards(AuthenticationGuard, RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post()
-  @Roles(Role.SUPER_MANAGER, Role.MANAGER)
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
-
   @Post('/agent')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
-  createAgent(@Body() createUserDto: CreateUserDto) {
+  createAgent(@Body() createUserDto: CreateUserDto, @GetUser() user: User) {
+    createUserDto.organizationId = user.organizationId;
+
     return this.userService.createAgent(createUserDto);
   }
 
   @Post('/agent/csv')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -69,6 +68,7 @@ export class UserController {
   }
 
   @Post('/agent/excel')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -79,13 +79,9 @@ export class UserController {
   )
   createAgentExcel(
     @UploadedFile(
-      new ParseFilePipeBuilder()
-        // .addFileTypeValidator({
-        //   fileType: 'xlsx',
-        // })
-        .build({
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
+      new ParseFilePipeBuilder().build({
+        errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      }),
     )
     file: Express.Multer.File,
     @GetUser() user: User,
@@ -93,13 +89,29 @@ export class UserController {
     return this.userService.readExcelSheet(file, user.organizationId);
   }
 
+  @Post('/activate')
+  @HttpCode(HttpStatus.OK)
+  activateUser(@Body() activateDto: ActivateDto) {
+    return this.userService.activateUser(
+      activateDto.token,
+      activateDto.password,
+    );
+  }
+
   @Post('/manager')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER)
-  async createManager(@Body() createUserDto: CreateUserDto) {
+  async createManager(
+    @Body() createUserDto: CreateUserDto,
+    @GetUser() user: User,
+  ) {
+    createUserDto.organizationId = user.organizationId;
+
     return this.userService.createManager(createUserDto);
   }
 
   @Get()
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   findAll(
     @Query() filterUserDto: FilterUserDto,
@@ -111,12 +123,14 @@ export class UserController {
   }
 
   @Get('/agent')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   @Roles(Role.SUPER_MANAGER, Role.MANAGER)
   findAllAgent(@GetUser() user: User) {
     return this.userService.findAllAgent(user.organizationId);
   }
 
   @Get(':id')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   findOne(
     @Param('id') id: string,
     @CheckOwnership([Role.SUPER_MANAGER, Role.MANAGER]) haveAccess: boolean,
@@ -127,6 +141,7 @@ export class UserController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -136,6 +151,7 @@ export class UserController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthenticationGuard, RolesGuard)
   remove(@Param('id') id: string, @GetUser() user: User) {
     return this.userService.remove(id, user);
   }

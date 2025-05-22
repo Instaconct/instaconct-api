@@ -15,6 +15,8 @@ import { FilterUserDto } from './dto/filter-user.dto';
 import { Prisma, Role, User } from '@prisma/client';
 import Excel from 'exceljs';
 import { isEmail } from 'class-validator';
+import { MailService } from 'src/mail/mail.service';
+import { EMAIL_TYPES } from 'src/mail/email.types';
 
 @Injectable()
 export class UserService {
@@ -22,6 +24,7 @@ export class UserService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly hashProvider: Hash,
+    private readonly mailService: MailService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -158,14 +161,42 @@ export class UserService {
 
   async createAgent(createUserDto: CreateUserDto) {
     try {
-      return await this.prismaService.user.create({
+      const emailVerifyToken = await this.hashProvider.generateRandomString();
+      const user = await this.prismaService.user.create({
         data: {
           ...createUserDto,
           role: Role.AGENT,
+          token: emailVerifyToken,
+          token_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Token expires in 24 hours
+        },
+        include: {
+          organization: {
+            select: { name: true },
+          },
         },
       });
+
+      void this.mailService.sendEmail(
+        user.email,
+        `You are invited to join as an agent. Click the link to verify your email.`,
+        {
+          url:
+            process.env.DEFAULT_VERIFY_URL +
+            process.env.AGENT_ACTIVATION_MAIL_URL +
+            `?token=${user.token}`,
+          organization: user.organization.name,
+        },
+        EMAIL_TYPES.AGENT_INVITATION,
+      );
+
+      return user;
     } catch (error) {
       this.logger.error(error);
+
+      if (error.code === 'P2002') {
+        throw new UnprocessableEntityException('This email already exists');
+      }
+
       throw new BadRequestException('Failed to create agent');
     } finally {
       await this.prismaService.$disconnect();
@@ -189,31 +220,157 @@ export class UserService {
 
   async createManager(createUserDto: CreateUserDto) {
     try {
-      return await this.prismaService.user.create({
-        data: {
-          ...createUserDto,
-          role: Role.MANAGER,
+      const [emailVerifyToken, user] = await Promise.all([
+        this.hashProvider.generateRandomString(),
+        this.prismaService.user.create({
+          data: {
+            ...createUserDto,
+            role: Role.MANAGER,
+            token: await this.hashProvider.generateRandomString(),
+            token_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Token expires in 24 hours
+          },
+          include: {
+            organization: {
+              select: { name: true },
+            },
+          },
+        }),
+      ]);
+
+      void this.mailService.sendEmail(
+        user.email,
+        `You are invited to join as a manager. Click the link to verify your email.`,
+        {
+          url:
+            process.env.DEFAULT_VERIFY_URL +
+            process.env.MANAGER_ACTIVATION_MAIL_URL +
+            `?token=${emailVerifyToken}`,
         },
-      });
+        EMAIL_TYPES.MANAGER_INVITATION,
+      );
+
+      return user;
     } catch (error) {
       this.logger.error(error);
+
+      if (error.code === 'P2002') {
+        throw new UnprocessableEntityException('This email already exists');
+      }
+
       throw new BadRequestException('Failed to create manager');
     } finally {
       await this.prismaService.$disconnect();
     }
   }
 
-  // create agents with csv/excel sheet
-  async createAgents(createUserDto: CreateUserDto[]) {
+  async activateUser(token: string, password: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: { token, token_expires_at: { gte: new Date() } },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    if (user.is_verified) {
+      throw new BadRequestException('User already activated');
+    }
+
+    await this.prismaService.user.update({
+      where: { id: user.id },
+      data: {
+        password: await this.hashProvider.hashPassword(password),
+        is_verified: true,
+        token: null,
+        token_expires_at: null,
+      },
+    });
+
+    return { message: 'User activated successfully' };
+  }
+
+  private async createAgents(createUserDto: CreateUserDto[]) {
+    const results = {
+      created: [],
+      failed: [],
+    };
+
     try {
-      return await this.prismaService.user.createMany({
-        data: createUserDto,
+      const emails = createUserDto.map((user) => user.email);
+      const existingUsers = await this.prismaService.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true },
       });
+
+      const existingEmails = new Set(existingUsers.map((user) => user.email));
+
+      const newUsers = [];
+      const emailTokens = new Map();
+
+      for (const user of createUserDto) {
+        if (existingEmails.has(user.email)) {
+          results.failed.push({
+            email: user.email,
+            reason: 'Email already exists',
+          });
+          continue;
+        }
+
+        const emailVerifyToken = await this.hashProvider.generateRandomString();
+        emailTokens.set(user.email, emailVerifyToken);
+
+        newUsers.push({
+          ...user,
+          role: Role.AGENT,
+          token: emailVerifyToken,
+          token_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Token expires in 24 hours
+        });
+      }
+
+      if (newUsers.length > 0) {
+        const createdUsers = await this.prismaService.user.createMany({
+          data: newUsers,
+          skipDuplicates: true,
+        });
+
+        if (createdUsers.count > 0) {
+          const createdUserRecords = await this.prismaService.user.findMany({
+            where: {
+              email: { in: newUsers.map((user) => user.email) },
+              token: { in: Array.from(emailTokens.values()) },
+            },
+          });
+
+          results.created = createdUserRecords;
+
+          await Promise.all(
+            createdUserRecords.map((user) =>
+              this.mailService
+                .sendEmail(
+                  user.email,
+                  `You are invited to join as an agent. Click the link to verify your email.`,
+                  {
+                    url: `${process.env.DEFAULT_VERIFY_URL}${process.env.AGENT_ACTIVATION_MAIL_URL}?token=${user.token}`,
+                  },
+                  EMAIL_TYPES.AGENT_INVITATION,
+                )
+                .catch((error) => {
+                  this.logger.warn(
+                    `Failed to send email to ${user.email}: ${error.message}`,
+                  );
+                }),
+            ),
+          );
+        }
+      }
+
+      return results;
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error(`Failed to create agents: ${error.message}`, {
+        stack: error.stack,
+        code: error.code,
+      });
       throw new BadRequestException('Failed to create agents');
-    } finally {
-      await this.prismaService.$disconnect();
     }
   }
 
@@ -246,7 +403,7 @@ export class UserService {
           `Missing required columns: ${missingColumns.join(', ')}`,
         );
       }
-      console.log(rows.length);
+
       if (rows.length > 102) {
         throw new UnprocessableEntityException('Maximum 100 rows allowed');
       }
@@ -273,6 +430,7 @@ export class UserService {
             `Duplicate email found at row ${i + 1}`,
           );
         }
+
         emailSet.add(rowData['EMAIL']);
 
         data.push({
@@ -284,9 +442,7 @@ export class UserService {
         });
       }
 
-      return await this.prismaService.user.createMany({
-        data,
-      });
+      return await this.createAgents(data);
     } catch (error) {
       this.logger.error('CSV processing failed:', error);
       console.log(error);
@@ -372,9 +528,7 @@ export class UserService {
         throw new BadRequestException(`Maximum ${MAX_ROWS} rows allowed`);
       }
 
-      const res = await this.prismaService.user.createMany({
-        data: rows,
-      });
+      const res = await this.createAgents(rows);
 
       return res;
     } catch (error) {
