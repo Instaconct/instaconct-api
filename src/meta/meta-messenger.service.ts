@@ -57,7 +57,7 @@ export class MetaMessengerService implements OnModuleInit {
     let customer = await this.prisma.customer.findFirst({
       where: {
         metadata: {
-          path: '$.facebook_id',
+          path: ['facebook_id'],
           equals: senderId,
         },
         organizationId: pageConnection.organizationId,
